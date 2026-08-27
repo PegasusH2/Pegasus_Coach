@@ -54,6 +54,10 @@ export async function initDatabase(userDataPath: string): Promise<void> {
   ensureColumn('weight_entry', 'updatedAt', 'TEXT')
   ensureColumn('weight_entry', 'deletedAt', 'TEXT')
 
+  // Debe crearse DESPUÉS de ensureColumn(): en una instalación existente la
+  // columna remoteId no existía todavía cuando se ejecutó schema.sql más arriba.
+  db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_weight_entry_remote ON weight_entry(remoteId) WHERE remoteId IS NOT NULL')
+
   persist()
 }
 

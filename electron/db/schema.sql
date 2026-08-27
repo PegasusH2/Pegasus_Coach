@@ -60,7 +60,10 @@ CREATE TABLE IF NOT EXISTS weight_entry (
   updatedAt TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_weight_entry_fecha ON weight_entry(fecha);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_weight_entry_remote ON weight_entry(remoteId) WHERE remoteId IS NOT NULL;
+-- idx_weight_entry_remote se crea en db/index.ts, DESPUÉS de ensureColumn(), no aquí:
+-- en una instalación existente la columna remoteId todavía no existe en este punto
+-- (se añade por ALTER TABLE más abajo en el arranque), y este CREATE INDEX se ejecuta
+-- como parte del mismo db.run(schema) que crea las tablas, antes de esa migración.
 
 CREATE TABLE IF NOT EXISTS measurement (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
