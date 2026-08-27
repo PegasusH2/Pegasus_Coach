@@ -8,7 +8,11 @@ import * as macroPlanRepo from './db/repositories/macroPlanRepo'
 import * as weightEntryRepo from './db/repositories/weightEntryRepo'
 import * as measurementRepo from './db/repositories/measurementRepo'
 import { buildImportPreview } from './importer/excelImporter'
+import * as auth from './sync/auth'
+import * as syncEngine from './sync/syncEngine'
+import { setSyncActive } from './sync/outbox'
 import type { ImportPreview, ImportResult, MacroPlanInput, MeasurementInput, WeightEntryInput } from '@shared/types'
+import type { ConflictResolution } from './sync/syncEngine'
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -72,11 +76,19 @@ function registerDataHandlers() {
 
   ipcMain.handle('weightEntries:list', () => weightEntryRepo.listWeightEntries())
   ipcMain.handle('weightEntries:getLatest', () => weightEntryRepo.getLatestWeightEntry())
-  ipcMain.handle('weightEntries:create', (_e, data: WeightEntryInput) => weightEntryRepo.createWeightEntry(data))
-  ipcMain.handle('weightEntries:update', (_e, id: number, data: WeightEntryInput) =>
-    weightEntryRepo.updateWeightEntry(id, data),
-  )
-  ipcMain.handle('weightEntries:delete', (_e, id: number) => weightEntryRepo.deleteWeightEntry(id))
+  ipcMain.handle('weightEntries:create', (_e, data: WeightEntryInput) => {
+    const entry = weightEntryRepo.createWeightEntry(data)
+    scheduleSync()
+    return entry
+  })
+  ipcMain.handle('weightEntries:update', (_e, id: number, data: WeightEntryInput) => {
+    weightEntryRepo.updateWeightEntry(id, data)
+    scheduleSync()
+  })
+  ipcMain.handle('weightEntries:delete', (_e, id: number) => {
+    weightEntryRepo.deleteWeightEntry(id)
+    scheduleSync()
+  })
 
   ipcMain.handle('measurements:list', () => measurementRepo.listMeasurements())
   ipcMain.handle('measurements:create', (_e, data: MeasurementInput) => measurementRepo.createMeasurement(data))
@@ -84,6 +96,55 @@ function registerDataHandlers() {
     measurementRepo.updateMeasurement(id, data),
   )
   ipcMain.handle('measurements:delete', (_e, id: number) => measurementRepo.deleteMeasurement(id))
+}
+
+// Debounce corto tras cada escritura local — nunca síncrono con el guardado
+// (eso bloquearía la respuesta IPC), solo agenda un intento en segundo
+// plano. Mismo criterio que el debounce de 'sync:queued' en js/core/sync.js
+// de Pegasus Tracker.
+let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleSync() {
+  if (!syncEngine.isSyncActive()) return
+  if (syncDebounceTimer) clearTimeout(syncDebounceTimer)
+  syncDebounceTimer = setTimeout(() => {
+    syncEngine.syncNow()
+  }, 3000)
+}
+
+function toPegasusSession(session: Awaited<ReturnType<typeof auth.getSession>>) {
+  return session ? { userEmail: session.user.email ?? null } : null
+}
+
+function registerSyncHandlers() {
+  ipcMain.handle('auth:signIn', async (_e, email: string, password: string) => {
+    try {
+      const session = await auth.signIn(email, password)
+      setSyncActive(true)
+      await syncEngine.syncNow()
+      return { session: toPegasusSession(session) }
+    } catch (err) {
+      return { error: auth.authErrorMessage(err) }
+    }
+  })
+  ipcMain.handle('auth:signOut', async () => {
+    await auth.signOut()
+    setSyncActive(false)
+  })
+  ipcMain.handle('auth:getSession', async () => toPegasusSession(await auth.getSession()))
+
+  ipcMain.handle('sync:now', async () => {
+    await syncEngine.syncNow()
+    return syncEngine.getSyncStatus()
+  })
+  ipcMain.handle('sync:getStatus', () => syncEngine.getSyncStatus())
+  ipcMain.handle('sync:previewMigration', () => syncEngine.previewMigration())
+  ipcMain.handle('sync:applyMigration', async (_e, resolutions: Record<number, ConflictResolution>) => {
+    await syncEngine.applyMigration(resolutions)
+  })
+
+  syncEngine.onSyncStatusChange((s) => {
+    mainWindow?.webContents.send('sync:statusChanged', s)
+  })
 }
 
 function registerImporterHandlers() {
@@ -164,8 +225,14 @@ app.whenReady().then(async () => {
 
   registerWindowControls()
   registerDataHandlers()
+  registerSyncHandlers()
   registerImporterHandlers()
   registerBackupHandlers(userDataPath)
+
+  // Modo local puro si no hay sesión guardada — no-op total, coste cero.
+  const session = await auth.getSession()
+  setSyncActive(!!session)
+  if (session) syncEngine.syncNow()
 
   await createWindow()
 

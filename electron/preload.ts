@@ -1,10 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
+  ConflictResolution,
   ImportPreview,
   MacroPlanInput,
   MeasurementInput,
   Mesociclo,
   Semana,
+  SyncStatus,
   WeightEntryInput,
 } from '@shared/types'
 import type { PegasusApi } from '@shared/api'
@@ -60,6 +62,25 @@ const api: PegasusApi = {
     backup: () => ipcRenderer.invoke('data:backup'),
     exportJson: () => ipcRenderer.invoke('data:exportJson'),
   },
+  auth: {
+    signIn: (email: string, password: string) => ipcRenderer.invoke('auth:signIn', email, password),
+    signOut: () => ipcRenderer.invoke('auth:signOut'),
+    getSession: () => ipcRenderer.invoke('auth:getSession'),
+  },
+  sync: {
+    now: () => ipcRenderer.invoke('sync:now'),
+    getStatus: () => ipcRenderer.invoke('sync:getStatus'),
+    previewMigration: () => ipcRenderer.invoke('sync:previewMigration'),
+    applyMigration: (resolutions: Record<number, ConflictResolution>) =>
+      ipcRenderer.invoke('sync:applyMigration', resolutions),
+    onStatusChange: (cb: (status: SyncStatus) => void) => subscribeSyncStatus(cb),
+  },
+}
+
+function subscribeSyncStatus(cb: (status: SyncStatus) => void) {
+  const listener = (_e: unknown, status: SyncStatus) => cb(status)
+  ipcRenderer.on('sync:statusChanged', listener)
+  return () => ipcRenderer.removeListener('sync:statusChanged', listener)
 }
 
 contextBridge.exposeInMainWorld('pegasus', api)

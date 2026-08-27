@@ -45,7 +45,41 @@ export async function initDatabase(userDataPath: string): Promise<void> {
     run('INSERT INTO profile (id, nombre) VALUES (1, ?)', [''])
   }
 
+  // Instalaciones que ya tenían weight_entry antes de la sincronización
+  // (sin remoteId/createdAt/updatedAt/deletedAt) — se añaden aquí de forma
+  // idempotente, nunca se recrea ni se borra la tabla. schema.sql ya cubre
+  // las instalaciones nuevas.
+  ensureColumn('weight_entry', 'remoteId', 'TEXT')
+  ensureColumn('weight_entry', 'createdAt', 'TEXT')
+  ensureColumn('weight_entry', 'updatedAt', 'TEXT')
+  ensureColumn('weight_entry', 'deletedAt', 'TEXT')
+
   persist()
+}
+
+/** Añade una columna a una tabla ya existente solo si todavía no existe — nunca destructivo. */
+function ensureColumn(table: string, column: string, sqlType: string): void {
+  if (!db) return
+  const columns = all<{ name: string }>(`PRAGMA table_info(${table})`)
+  if (columns.some((c) => c.name === column)) return
+  db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${sqlType}`)
+}
+
+/** Almacén clave-valor genérico (sesión de Supabase, deviceId, lastSyncedAt). */
+export function kvGet(key: string): string | null {
+  const row = get<{ value: string }>('SELECT value FROM sync_kv WHERE key = ?', [key])
+  return row?.value ?? null
+}
+
+export function kvSet(key: string, value: string): void {
+  run('INSERT INTO sync_kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', [
+    key,
+    value,
+  ])
+}
+
+export function kvDelete(key: string): void {
+  run('DELETE FROM sync_kv WHERE key = ?', [key])
 }
 
 export function persist(): void {
@@ -54,9 +88,27 @@ export function persist(): void {
   fs.writeFileSync(dbFilePath, Buffer.from(data))
 }
 
+// db.export() (usado por persist()) resetea last_insert_rowid() a 0 en
+// sql.js — por eso se captura AQUÍ, justo tras el INSERT/UPDATE y antes de
+// persistir, en vez de dejar que lastInsertId() la consulte más tarde (que
+// siempre habría devuelto 0 tras cualquier run() previo).
+let capturedLastInsertId = 0
+
+function captureLastInsertId(): void {
+  if (!db) return
+  const stmt = db.prepare('SELECT last_insert_rowid() as id')
+  try {
+    stmt.step()
+    capturedLastInsertId = (stmt.getAsObject() as { id: number }).id
+  } finally {
+    stmt.free()
+  }
+}
+
 export function run(sql: string, params: unknown[] = []): void {
   if (!db) throw new Error('Base de datos no inicializada')
   db.run(sql, params)
+  captureLastInsertId()
   persist()
 }
 
@@ -64,6 +116,7 @@ export function run(sql: string, params: unknown[] = []): void {
 export function runNoPersist(sql: string, params: unknown[] = []): void {
   if (!db) throw new Error('Base de datos no inicializada')
   db.run(sql, params)
+  captureLastInsertId()
 }
 
 export function all<T = Record<string, unknown>>(sql: string, params: unknown[] = []): T[] {
@@ -87,8 +140,7 @@ export function get<T = Record<string, unknown>>(sql: string, params: unknown[] 
 }
 
 export function lastInsertId(): number {
-  const row = get<{ id: number }>('SELECT last_insert_rowid() as id')
-  return row?.id ?? 0
+  return capturedLastInsertId
 }
 
 /** Ejecuta varias escrituras y persiste una sola vez al final (evita reescribir el fichero N veces). */

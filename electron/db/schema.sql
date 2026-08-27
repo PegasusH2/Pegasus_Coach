@@ -44,13 +44,23 @@ CREATE TABLE IF NOT EXISTS macro_plan (
 );
 CREATE INDEX IF NOT EXISTS idx_macro_plan_fecha ON macro_plan(fecha);
 
+-- remoteId/createdAt/updatedAt son para la sincronización opcional con la
+-- Cuenta Pegasus (ver electron/sync/); el borrado local sigue siendo físico,
+-- como en el resto de la app. En una instalación existente
+-- (weight_entry ya creada sin estas columnas) db/index.ts las añade con
+-- ALTER TABLE de forma idempotente al arrancar — este CREATE TABLE solo
+-- cubre instalaciones nuevas.
 CREATE TABLE IF NOT EXISTS weight_entry (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   fecha TEXT NOT NULL,
   pesoKg REAL NOT NULL,
-  notas TEXT
+  notas TEXT,
+  remoteId TEXT,
+  createdAt TEXT,
+  updatedAt TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_weight_entry_fecha ON weight_entry(fecha);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_weight_entry_remote ON weight_entry(remoteId) WHERE remoteId IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS measurement (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,3 +82,33 @@ CREATE TABLE IF NOT EXISTS measurement (
   notas TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_measurement_fecha ON measurement(fecha);
+
+-- ---------------------------------------------------------------------
+-- Sincronización opcional con la Cuenta Pegasus (Supabase). Vacías/sin uso
+-- en instalaciones sin cuenta — ver electron/sync/.
+-- ---------------------------------------------------------------------
+
+-- Almacén clave-valor genérico: sesión de Supabase Auth (persistida por el
+-- adaptador de storage propio, ver electron/sync/supabaseStorage.ts),
+-- deviceId, lastSyncedAt. Mismo rol que la tabla `settings` de Pegasus Tracker.
+CREATE TABLE IF NOT EXISTS sync_kv (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
+
+-- Outbox local: cambios pendientes de subir a Supabase. Solo se usa la
+-- entidad 'weight_entry' por ahora (ver docs de la propuesta de integración
+-- Tracker+Nutrition — fase 1).
+CREATE TABLE IF NOT EXISTS sync_queue (
+  id TEXT PRIMARY KEY,
+  entity TEXT NOT NULL,
+  entityId TEXT NOT NULL,
+  operation TEXT NOT NULL,
+  payload TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  lastAttemptAt TEXT,
+  lastError TEXT,
+  createdAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status);

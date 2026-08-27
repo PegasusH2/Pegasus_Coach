@@ -117,3 +117,40 @@ export interface ImportResult {
 export interface BackupResult {
   path: string
 }
+
+// ---------- Cuenta Pegasus / sincronización (ver electron/sync/) ----------
+
+export interface PegasusSession {
+  userEmail: string | null
+}
+
+export interface SignInResult {
+  session?: PegasusSession
+  error?: string
+}
+
+export type SyncState = 'idle' | 'syncing' | 'error' | 'pending'
+
+export interface SyncStatus {
+  state: SyncState
+  lastSyncedAt: string | null
+  pendingCount: number
+  lastError: string | null
+}
+
+export interface MigrationConflict {
+  localId: number
+  fecha: string
+  pesoLocal: number
+  notasLocal: string | null
+  remoteId: string
+  pesoRemoto: number
+  updatedAt: string
+}
+
+export interface MigrationPreview {
+  toUpload: number
+  conflicts: MigrationConflict[]
+}
+
+export type ConflictResolution = 'both' | 'keepLocal' | 'keepRemote'

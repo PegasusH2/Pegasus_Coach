@@ -2,6 +2,7 @@
 // para que pueda importarse tanto desde el proceso main (preload) como desde el renderer.
 import type {
   BackupResult,
+  ConflictResolution,
   ImportPreview,
   ImportResult,
   MacroPlan,
@@ -9,8 +10,12 @@ import type {
   Measurement,
   MeasurementInput,
   Mesociclo,
+  MigrationPreview,
+  PegasusSession,
   Profile,
   Semana,
+  SignInResult,
+  SyncStatus,
   WeightEntry,
   WeightEntryInput,
 } from './types'
@@ -65,5 +70,17 @@ export interface PegasusApi {
   data: {
     backup: () => Promise<BackupResult | null>
     exportJson: () => Promise<BackupResult | null>
+  }
+  auth: {
+    signIn: (email: string, password: string) => Promise<SignInResult>
+    signOut: () => Promise<void>
+    getSession: () => Promise<PegasusSession | null>
+  }
+  sync: {
+    now: () => Promise<SyncStatus>
+    getStatus: () => Promise<SyncStatus>
+    previewMigration: () => Promise<MigrationPreview>
+    applyMigration: (resolutions: Record<number, ConflictResolution>) => Promise<void>
+    onStatusChange: (cb: (status: SyncStatus) => void) => () => void
   }
 }
