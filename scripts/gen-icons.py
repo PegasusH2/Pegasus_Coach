@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw
 BG = (10, 10, 10, 255)
 RED = (232, 56, 61, 255)
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "public", "icons")
+PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "..", "public")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 
@@ -42,4 +43,11 @@ for size in (64, 180, 192, 512):
 
 draw_mark(512, 0.22, maskable=True).save(os.path.join(OUT_DIR, "icon-512-maskable.png"))
 
+favicon_source = draw_mark(256, 0.14)
+favicon_source.save(
+    os.path.join(PUBLIC_DIR, "favicon.ico"),
+    sizes=[(16, 16), (32, 32), (48, 48), (64, 64)],
+)
+
 print("Iconos generados en", OUT_DIR)
+print("favicon.ico generado en", PUBLIC_DIR)
