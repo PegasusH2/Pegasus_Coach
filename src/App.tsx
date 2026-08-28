@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Eye } from 'lucide-react'
 import { Sidebar } from './components/Sidebar'
 import { DiaTipoProvider } from './lib/DiaTipoContext'
@@ -17,6 +17,12 @@ import { Ajustes } from './pages/Ajustes'
 function AppShell() {
   const [route, setRoute] = useState<Route>({ section: 'inicio' })
   const { session, profile, profileChecked, profileError, clienteActivo, setClienteActivo } = useSession()
+
+  // Al cambiar de cuenta (o cerrar sesión), no debe quedar la sección de una
+  // pantalla que quizá no aplique al nuevo rol (p.ej. "clientes").
+  useEffect(() => {
+    setRoute({ section: 'inicio' })
+  }, [session?.user.id])
 
   if (session === undefined) {
     return <div className="flex h-screen items-center justify-center bg-bg text-text-muted">Cargando…</div>
@@ -78,7 +84,7 @@ function AppShell() {
             {route.section === 'progreso' && (
               <Progreso tab={route.progresoTab ?? 'evolucion'} onNavigate={setRoute} />
             )}
-            {route.section === 'clientes' && <Clientes onNavigate={setRoute} />}
+            {route.section === 'clientes' && profile.role === 'entrenador' && <Clientes onNavigate={setRoute} />}
             {route.section === 'ajustes' && <Ajustes />}
           </main>
         </div>

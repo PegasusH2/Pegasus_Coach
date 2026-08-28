@@ -53,7 +53,9 @@ export function Clientes({ onNavigate }: { onNavigate: (r: Route) => void }) {
         </div>
         {error && <p className="mt-2 text-sm text-pegasus-red">{error}</p>}
         <p className="mt-2 text-xs text-text-muted">
-          El cliente debe tener ya una Cuenta Pegasus y aprobar la solicitud desde su Ajustes.
+          Vale con que tenga Cuenta Pegasus (por ejemplo si ya usa Pegasus Tracker), aunque nunca haya
+          entrado a Nutrition. Debe aprobar la solicitud — desde Nutrition, o al entrar por primera vez
+          se le pedirá completar su perfil y luego podrá aceptarla en Ajustes.
         </p>
       </Card>
 
@@ -63,9 +65,9 @@ export function Clientes({ onNavigate }: { onNavigate: (r: Route) => void }) {
         <div className="flex flex-col gap-2">
           {aceptados.map((l) => (
             <div key={l.id} className="flex items-center justify-between rounded-control border border-bg-border p-3">
-              <span className="text-sm font-medium">{l.otroNombre || 'Cliente'}</span>
+              <span className="text-sm font-medium">{l.otroNombre || l.otroEmail || 'Cliente'}</span>
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => verCliente(l.clientId, l.otroNombre || 'Cliente')}>
+                <Button variant="secondary" onClick={() => verCliente(l.clientId, l.otroNombre || l.otroEmail || 'Cliente')}>
                   <span className="flex items-center gap-1">
                     <Eye size={13} /> Ver progreso
                   </span>
@@ -85,7 +87,9 @@ export function Clientes({ onNavigate }: { onNavigate: (r: Route) => void }) {
           <div className="flex flex-col gap-2">
             {pendientes.map((l) => (
               <div key={l.id} className="flex items-center justify-between rounded-control border border-bg-border p-3">
-                <span className="text-sm text-text-secondary">{l.otroNombre || 'Cliente'} · esperando aprobación</span>
+                <span className="text-sm text-text-secondary">
+                  {l.otroNombre || l.otroEmail || 'Cliente'} · esperando aprobación
+                </span>
                 <Button variant="ghost" onClick={() => revokeLink(l.id).then(refetch)}>
                   <span className="flex items-center gap-1">
                     <X size={13} /> Cancelar
