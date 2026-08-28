@@ -103,6 +103,17 @@ export function Macros() {
     setForm((f) => ({ ...f, [key]: value }))
   }
 
+  // Días ON + días OFF siempre suman 7 (una semana) — al cambiar uno, el otro
+  // se ajusta solo para que nunca se pueda superar ese total.
+  function setDiasSemana(lado: 'on' | 'off', value: number | null) {
+    const v = value === null ? null : Math.max(0, Math.min(7, Math.round(value)))
+    setForm((f) => ({
+      ...f,
+      diasOn: lado === 'on' ? v : v === null ? f.diasOn : 7 - v,
+      diasOff: lado === 'off' ? v : v === null ? f.diasOff : 7 - v,
+    }))
+  }
+
   return (
     <div className="max-w-5xl">
       <PageHeader
@@ -181,7 +192,14 @@ export function Macros() {
         <Card>
           <CardLabel>Día ON</CardLabel>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Días / semana" type="number" value={form.diasOn ?? ''} onChange={(e) => set('diasOn', num(e.target.value))} />
+            <Field
+              label="Días / semana"
+              type="number"
+              min={0}
+              max={7}
+              value={form.diasOn ?? ''}
+              onChange={(e) => setDiasSemana('on', num(e.target.value))}
+            />
             <Field label="Proteína" type="number" suffix="g" value={form.proteinaOn ?? ''} onChange={(e) => set('proteinaOn', num(e.target.value))} />
             <Field label="Hidratos" type="number" suffix="g" value={form.hidratosOn ?? ''} onChange={(e) => set('hidratosOn', num(e.target.value))} />
             <Field label="Grasas" type="number" suffix="g" value={form.grasasOn ?? ''} onChange={(e) => set('grasasOn', num(e.target.value))} />
@@ -190,7 +208,14 @@ export function Macros() {
         <Card>
           <CardLabel>Día OFF</CardLabel>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Días / semana" type="number" value={form.diasOff ?? ''} onChange={(e) => set('diasOff', num(e.target.value))} />
+            <Field
+              label="Días / semana"
+              type="number"
+              min={0}
+              max={7}
+              value={form.diasOff ?? ''}
+              onChange={(e) => setDiasSemana('off', num(e.target.value))}
+            />
             <Field label="Proteína" type="number" suffix="g" value={form.proteinaOff ?? ''} onChange={(e) => set('proteinaOff', num(e.target.value))} />
             <Field label="Hidratos" type="number" suffix="g" value={form.hidratosOff ?? ''} onChange={(e) => set('hidratosOff', num(e.target.value))} />
             <Field label="Grasas" type="number" suffix="g" value={form.grasasOff ?? ''} onChange={(e) => set('grasasOff', num(e.target.value))} />
