@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react'
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useMacroPlans, useMeasurements, useWeightEntries } from '@/hooks/useData'
 import { calcularMacroPlan } from '@/lib/calculos'
+import { useSession } from '@/lib/SessionContext'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { WeightChart } from '@/components/WeightChart'
 import { MeasurementForm, type CampoMedicion } from '@/components/ui/MeasurementForm'
 import { formatFechaCorta, formatNumero } from '@/lib/format'
 import type { ProgresoTab, Route } from '@/lib/nav'
-import type { Measurement } from '@shared/types'
+import type { Measurement } from '@/types'
 
 const PLIEGUES: CampoMedicion[] = [
   { key: 'pectoral', label: 'Pectoral', suffix: 'mm' },
@@ -74,6 +75,7 @@ function SimpleLine({
 }
 
 export function Progreso({ tab, onNavigate }: { tab: ProgresoTab; onNavigate: (r: Route) => void }) {
+  const { targetUserId, soloLectura } = useSession()
   const { data: weightEntries } = useWeightEntries()
   const { data: macroPlans } = useMacroPlans()
   const { data: measurements, refetch: refetchMeasurements } = useMeasurements()
@@ -132,20 +134,24 @@ export function Progreso({ tab, onNavigate }: { tab: ProgresoTab; onNavigate: (r
 
       {tab === 'medidas' && (
         <div className="flex flex-col gap-4">
-          <Card>
-            <CardLabel>Registrar perímetros corporales</CardLabel>
-            <MeasurementForm campos={MEDIDAS} onSaved={refetchMeasurements} />
-          </Card>
+          {!soloLectura && targetUserId && (
+            <Card>
+              <CardLabel>Registrar perímetros corporales</CardLabel>
+              <MeasurementForm userId={targetUserId} campos={MEDIDAS} onSaved={refetchMeasurements} />
+            </Card>
+          )}
           <MedicionesTabla mediciones={mediciones} campos={MEDIDAS} />
         </div>
       )}
 
       {tab === 'pliegues' && (
         <div className="flex flex-col gap-4">
-          <Card>
-            <CardLabel>Registrar pliegues cutáneos (7 sitios) y % graso</CardLabel>
-            <MeasurementForm campos={PLIEGUES} onSaved={refetchMeasurements} />
-          </Card>
+          {!soloLectura && targetUserId && (
+            <Card>
+              <CardLabel>Registrar pliegues cutáneos (7 sitios) y % graso</CardLabel>
+              <MeasurementForm userId={targetUserId} campos={PLIEGUES} onSaved={refetchMeasurements} />
+            </Card>
+          )}
           <MedicionesTabla mediciones={mediciones} campos={PLIEGUES} />
         </div>
       )}

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import type { DiaTipo } from '@shared/types'
+import type { DiaTipo } from '@/types'
 
 const DiaTipoContext = createContext<{ diaTipo: DiaTipo; setDiaTipo: (d: DiaTipo) => void } | null>(null)
 

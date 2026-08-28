@@ -4,16 +4,19 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { useActiveMacroPlan } from '@/hooks/useData'
 import { calcularMacroPlan } from '@/lib/calculos'
 import { useDiaTipo } from '@/lib/DiaTipoContext'
+import { useSession } from '@/lib/SessionContext'
+import { createMacroPlan, updateMacroPlan } from '@/lib/supabase/macroPlanRepo'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { DiaToggle } from '@/components/ui/DiaToggle'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { formatNumero, hoyIso } from '@/lib/format'
-import type { MacroPlanInput } from '@shared/types'
+import type { MacroPlanInput } from '@/types'
 
-function emptyForm(): MacroPlanInput {
+function emptyForm(userId: string): MacroPlanInput {
   return {
+    userId,
     fecha: hoyIso(),
     semanaId: null,
     neatObjetivoPasos: null,
@@ -43,19 +46,22 @@ function num(v: string): number | null {
 }
 
 export function Macros() {
+  const { targetUserId, soloLectura } = useSession()
   const { data: plan, refetch } = useActiveMacroPlan()
   const { diaTipo, setDiaTipo } = useDiaTipo()
-  const [form, setForm] = useState<MacroPlanInput>(emptyForm())
+  const [form, setForm] = useState<MacroPlanInput>(emptyForm(targetUserId ?? ''))
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
     if (plan) {
       const { id, ...rest } = plan
       setForm(rest)
+    } else if (targetUserId) {
+      setForm(emptyForm(targetUserId))
     }
-  }, [plan])
+  }, [plan, targetUserId])
 
-  const calculado = calcularMacroPlan({ id: plan?.id ?? 0, ...form })
+  const calculado = calcularMacroPlan({ id: plan?.id ?? '', ...form })
 
   const kcal = diaTipo === 'ON' ? calculado.calTotalOn : calculado.calTotalOff
   const proteina = diaTipo === 'ON' ? calculado.proteinaOn : calculado.proteinaOff
@@ -75,7 +81,7 @@ export function Macros() {
     if (!plan) return
     setGuardando(true)
     try {
-      await window.pegasus.macroPlans.update(plan.id, form)
+      await updateMacroPlan(plan.id, form)
       await refetch()
     } finally {
       setGuardando(false)
@@ -83,9 +89,10 @@ export function Macros() {
   }
 
   async function registrarNuevaRevision() {
+    if (!targetUserId) return
     setGuardando(true)
     try {
-      await window.pegasus.macroPlans.create({ ...form, fecha: hoyIso() })
+      await createMacroPlan({ ...form, userId: targetUserId, fecha: hoyIso() })
       await refetch()
     } finally {
       setGuardando(false)
@@ -135,6 +142,7 @@ export function Macros() {
         </Card>
       </div>
 
+      <fieldset disabled={soloLectura}>
       <Card className="mt-4">
         <CardLabel>General</CardLabel>
         <div className="grid grid-cols-4 gap-4">
@@ -189,15 +197,18 @@ export function Macros() {
           </div>
         </Card>
       </div>
+      </fieldset>
 
-      <div className="mt-4 flex justify-end gap-3">
-        <Button variant="secondary" onClick={registrarNuevaRevision} disabled={guardando}>
-          Registrar como nueva revisión (hoy)
-        </Button>
-        <Button onClick={guardarCambios} disabled={!plan || guardando}>
-          Guardar cambios
-        </Button>
-      </div>
+      {!soloLectura && (
+        <div className="mt-4 flex justify-end gap-3">
+          <Button variant="secondary" onClick={registrarNuevaRevision} disabled={guardando}>
+            Registrar como nueva revisión (hoy)
+          </Button>
+          <Button onClick={guardarCambios} disabled={!plan || guardando}>
+            Guardar cambios
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

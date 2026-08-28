@@ -3,20 +3,26 @@ import {
   Download,
   Home,
   LineChart,
+  LogOut,
   PieChart,
   Ruler,
   Scale,
   Settings,
   Upload,
+  Users,
 } from 'lucide-react'
 import type { Route, Section } from '@/lib/nav'
+import { rolLabel } from '@/lib/supabase/profileRepo'
+import type { Rol } from '@/types'
 
 interface SidebarProps {
   route: Route
   onNavigate: (route: Route) => void
   nombrePerfil: string
+  rol: Rol
   onExportar: () => void
   onImportarExcel: () => void
+  onCerrarSesion: () => void
 }
 
 const PROGRESO_TABS: { key: NonNullable<Route['progresoTab']>; label: string }[] = [
@@ -50,7 +56,7 @@ function NavItem({
   )
 }
 
-export function Sidebar({ route, onNavigate, nombrePerfil, onExportar, onImportarExcel }: SidebarProps) {
+export function Sidebar({ route, onNavigate, nombrePerfil, rol, onExportar, onImportarExcel, onCerrarSesion }: SidebarProps) {
   const progresoAbierto = route.section === 'progreso'
 
   const irA = (section: Section) => {
@@ -124,6 +130,15 @@ export function Sidebar({ route, onNavigate, nombrePerfil, onExportar, onImporta
             </div>
           )}
 
+          {rol === 'entrenador' && (
+            <NavItem
+              active={route.section === 'clientes'}
+              icon={<Users size={16} />}
+              label="Clientes"
+              onClick={() => irA('clientes')}
+            />
+          )}
+
           <NavItem
             active={route.section === 'ajustes'}
             icon={<Settings size={16} />}
@@ -140,7 +155,7 @@ export function Sidebar({ route, onNavigate, nombrePerfil, onExportar, onImporta
           </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold">Hola, {nombrePerfil || 'Atleta'}</div>
-            <div className="text-xs text-text-muted">Atleta</div>
+            <div className="text-xs text-text-muted">{rolLabel(rol)}</div>
           </div>
         </div>
 
@@ -159,9 +174,16 @@ export function Sidebar({ route, onNavigate, nombrePerfil, onExportar, onImporta
             <Upload size={13} />
             Importar Excel
           </button>
+          <button
+            onClick={onCerrarSesion}
+            className="flex items-center gap-2 rounded-control px-2 py-1.5 text-xs text-text-secondary hover:bg-bg-hover hover:text-pegasus-red"
+          >
+            <LogOut size={13} />
+            Cerrar sesión
+          </button>
         </div>
 
-        <div className="px-2 text-[10px] text-text-muted">v1.0.0</div>
+        <div className="px-2 text-[10px] text-text-muted">v2.0.0</div>
       </div>
     </aside>
   )

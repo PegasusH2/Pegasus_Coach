@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useWeightEntries } from '@/hooks/useData'
 import { cambioEnPeriodo, cambioPeso } from '@/lib/calculos'
+import { useSession } from '@/lib/SessionContext'
+import { createWeightEntry, deleteWeightEntry } from '@/lib/supabase/bodyWeightRepo'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
@@ -10,6 +12,7 @@ import { formatFechaCorta, formatNumero, hoyIso } from '@/lib/format'
 import { Trash2 } from 'lucide-react'
 
 export function Peso() {
+  const { targetUserId, soloLectura } = useSession()
   const { data: entries, refetch } = useWeightEntries()
   const [fecha, setFecha] = useState(hoyIso())
   const [peso, setPeso] = useState('')
@@ -22,10 +25,10 @@ export function Peso() {
 
   async function registrar() {
     const valor = Number(peso)
-    if (!Number.isFinite(valor) || valor <= 0) return
+    if (!Number.isFinite(valor) || valor <= 0 || !targetUserId) return
     setGuardando(true)
     try {
-      await window.pegasus.weightEntries.create({ fecha, pesoKg: valor, notas: null })
+      await createWeightEntry({ fecha, pesoKg: valor, notas: null })
       setPeso('')
       await refetch()
     } finally {
@@ -33,8 +36,8 @@ export function Peso() {
     }
   }
 
-  async function eliminar(id: number) {
-    await window.pegasus.weightEntries.delete(id)
+  async function eliminar(id: string) {
+    await deleteWeightEntry(id)
     await refetch()
   }
 
@@ -68,16 +71,18 @@ export function Peso() {
         <WeightChart entries={pesos} height={260} />
       </Card>
 
-      <Card className="mt-4">
-        <CardLabel>Registrar peso</CardLabel>
-        <div className="flex items-end gap-3">
-          <Field label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-          <Field label="Peso" type="number" suffix="kg" value={peso} onChange={(e) => setPeso(e.target.value)} placeholder="80.5" />
-          <Button onClick={registrar} disabled={guardando}>
-            Añadir
-          </Button>
-        </div>
-      </Card>
+      {!soloLectura && (
+        <Card className="mt-4">
+          <CardLabel>Registrar peso</CardLabel>
+          <div className="flex items-end gap-3">
+            <Field label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+            <Field label="Peso" type="number" suffix="kg" value={peso} onChange={(e) => setPeso(e.target.value)} placeholder="80.5" />
+            <Button onClick={registrar} disabled={guardando}>
+              Añadir
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <Card className="mt-4">
         <CardLabel>Histórico</CardLabel>
@@ -89,9 +94,11 @@ export function Peso() {
                   <td className="py-2 text-text-secondary">{formatFechaCorta(e.fecha)}</td>
                   <td className="py-2 font-medium">{formatNumero(e.pesoKg, 1)} kg</td>
                   <td className="py-2 text-right">
-                    <button onClick={() => eliminar(e.id)} className="text-text-muted hover:text-pegasus-red">
-                      <Trash2 size={14} />
-                    </button>
+                    {!soloLectura && (
+                      <button onClick={() => eliminar(e.id)} className="text-text-muted hover:text-pegasus-red">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

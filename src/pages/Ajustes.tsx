@@ -1,14 +1,27 @@
-import { useEffect, useState } from 'react'
-import { AlertTriangle, Download, FileSpreadsheet, HardDriveDownload, Plus } from 'lucide-react'
-import { useMesociclos, useProfile } from '@/hooks/useData'
+import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, Download, FileSpreadsheet, Plus } from 'lucide-react'
+import { useAsyncData } from '@/hooks/useData'
+import { useSession } from '@/lib/SessionContext'
+import { updateProfile } from '@/lib/supabase/profileRepo'
+import { createMesociclo, listMesociclos } from '@/lib/supabase/mesocicloRepo'
+import { createMacroPlansBatch } from '@/lib/supabase/macroPlanRepo'
+import {
+  aplicarImportacionPeso,
+  previsualizarImportacionPeso,
+  type PreviewImportacionPeso,
+  type ResolucionConflictoPeso,
+} from '@/lib/supabase/bodyWeightRepo'
+import { buildImportPreview } from '@/lib/excelImporter'
+import { exportarDatosJson } from '@/lib/exportData'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
-import type { ConflictResolution, ImportPreview, MigrationPreview, Mesociclo, PegasusSession, SyncStatus } from '@shared/types'
+import { SolicitudesPendientesCliente } from './Clientes'
+import type { ImportPreview, Mesociclo } from '@/types'
 
 function PerfilCard() {
-  const { data: profile, refetch } = useProfile()
+  const { session, profile, refreshProfile } = useSession()
   const [nombre, setNombre] = useState('')
   const [pesoInicial, setPesoInicial] = useState('')
   const [fechaInicio, setFechaInicio] = useState('')
@@ -25,15 +38,16 @@ function PerfilCard() {
   }, [profile])
 
   async function guardar() {
+    if (!session) return
     setGuardando(true)
     try {
-      await window.pegasus.profile.update({
+      await updateProfile(session.user.id, {
         nombre,
         pesoInicial: pesoInicial ? Number(pesoInicial) : null,
         fechaInicio: fechaInicio || null,
         neatObjetivoPasos: neat ? Number(neat) : null,
       })
-      await refetch()
+      await refreshProfile()
     } finally {
       setGuardando(false)
     }
@@ -58,11 +72,13 @@ function PerfilCard() {
 }
 
 function MesociclosCard({ mesociclos, refetch }: { mesociclos: Mesociclo[]; refetch: () => void }) {
+  const { session } = useSession()
   const [nombre, setNombre] = useState('')
 
   async function crear() {
+    if (!session) return
     const numero = mesociclos.length + 1
-    await window.pegasus.mesociclos.create({ numero, nombre: nombre || `Mesociclo ${numero}`, fechaInicio: null })
+    await createMesociclo({ userId: session.user.id, numero, nombre: nombre || `Mesociclo ${numero}`, fechaInicio: null })
     setNombre('')
     await refetch()
   }
@@ -91,71 +107,111 @@ function MesociclosCard({ mesociclos, refetch }: { mesociclos: Mesociclo[]; refe
 }
 
 function DatosCard() {
+  const { session } = useSession()
   async function exportar() {
-    const res = await window.pegasus.data.exportJson()
-    if (res) window.alert(`Exportado en:\n${res.path}`)
-  }
-  async function backup() {
-    const res = await window.pegasus.data.backup()
-    if (res) window.alert(`Copia de seguridad guardada en:\n${res.path}`)
+    if (!session) return
+    await exportarDatosJson(session.user.id)
   }
 
   return (
     <Card>
       <CardLabel>Datos</CardLabel>
-      <div className="flex gap-3">
-        <Button variant="secondary" onClick={exportar}>
-          <span className="flex items-center gap-1">
-            <Download size={14} /> Exportar datos (JSON)
-          </span>
-        </Button>
-        <Button variant="secondary" onClick={backup}>
-          <span className="flex items-center gap-1">
-            <HardDriveDownload size={14} /> Copia de seguridad
-          </span>
-        </Button>
-      </div>
+      <Button variant="secondary" onClick={exportar}>
+        <span className="flex items-center gap-1">
+          <Download size={14} /> Exportar datos (JSON)
+        </span>
+      </Button>
     </Card>
   )
 }
 
 function ImportarExcelCard({ onImported }: { onImported: () => void }) {
-  const [filePath, setFilePath] = useState<string | null>(null)
+  const { session } = useSession()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [fileName, setFileName] = useState<string | null>(null)
   const [preview, setPreview] = useState<ImportPreview | null>(null)
+  const [pesoPreview, setPesoPreview] = useState<PreviewImportacionPeso | null>(null)
+  const [resolucionesPeso, setResolucionesPeso] = useState<Record<string, ResolucionConflictoPeso>>({})
+  const [macroPlansCreados, setMacroPlansCreados] = useState(0)
+  const [nombreMesociclo, setNombreMesociclo] = useState('')
   const [cargando, setCargando] = useState(false)
   const [resultado, setResultado] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  async function elegirArchivo() {
-    const path = await window.pegasus.importer.pickFile()
-    if (!path) return
-    setFilePath(path)
+  async function onFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setFileName(file.name)
     setResultado(null)
+    setError(null)
     setCargando(true)
     try {
-      const p = await window.pegasus.importer.preview(path)
-      setPreview(p)
+      setPreview(await buildImportPreview(file))
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'No se pudo leer el Excel.')
+      setError(err instanceof Error ? err.message : 'No se pudo leer el Excel.')
       setPreview(null)
     } finally {
       setCargando(false)
     }
   }
 
+  // Paso 1: crea el mesociclo y los planes de macros (propios de Nutrition,
+  // sin conflicto posible), y prepara la comparación de pesos contra
+  // body_weight (compartida con Tracker) — si hay fechas con valores
+  // distintos en los dos sitios, se pide al usuario antes de tocar nada.
   async function confirmarImportacion() {
-    if (!preview) return
+    if (!preview || !session) return
     setCargando(true)
+    setError(null)
     try {
-      const res = await window.pegasus.importer.apply(preview)
-      setResultado(
-        `Importado: ${res.macroPlansCreados} planes de macros y ${res.weightEntriesCreados} registros de peso en "${res.mesocicloCreado.nombre}".`,
-      )
-      setPreview(null)
-      setFilePath(null)
-      onImported()
+      const userId = session.user.id
+      const mesociclosExistentes = await listMesociclos(userId)
+      const numero = mesociclosExistentes.length > 0 ? Math.max(...mesociclosExistentes.map((m) => m.numero)) + 1 : 1
+      const mesociclo = await createMesociclo({
+        userId,
+        numero,
+        nombre: `Mesociclo ${numero} (importado)`,
+        fechaInicio: preview.macroPlans[0]?.fecha ?? null,
+      })
+      await createMacroPlansBatch(preview.macroPlans.map((p) => ({ ...p, userId })))
+      setMacroPlansCreados(preview.macroPlans.length)
+      setNombreMesociclo(mesociclo.nombre ?? '')
+
+      const pesos = await previsualizarImportacionPeso(userId, preview.weightEntries)
+      if (pesos.conflictos.length === 0) {
+        await aplicarImportacionPeso(userId, pesos, preview.weightEntries, {})
+        finalizar(preview.macroPlans.length, pesos.aSubir.length, mesociclo.nombre ?? '')
+      } else {
+        setPesoPreview(pesos) // pide resolución antes de tocar nada más
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo importar.')
     } finally {
       setCargando(false)
     }
+  }
+
+  async function confirmarPesos() {
+    if (!preview || !pesoPreview || !session) return
+    setCargando(true)
+    try {
+      await aplicarImportacionPeso(session.user.id, pesoPreview, preview.weightEntries, resolucionesPeso)
+      finalizar(macroPlansCreados, pesoPreview.aSubir.length + Object.keys(resolucionesPeso).length, nombreMesociclo)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo importar el peso.')
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  function finalizar(planes: number, pesos: number, mesociclo: string) {
+    setResultado(`Importado: ${planes} planes de macros y ${pesos} registros de peso en "${mesociclo}".`)
+    setPreview(null)
+    setPesoPreview(null)
+    setResolucionesPeso({})
+    setFileName(null)
+    onImported()
   }
 
   return (
@@ -164,17 +220,20 @@ function ImportarExcelCard({ onImported }: { onImported: () => void }) {
       <p className="mb-3 text-sm text-text-secondary">
         Selecciona el Excel de control de macros. Se mostrará una vista previa antes de importar nada.
       </p>
-      <Button variant="secondary" onClick={elegirArchivo} disabled={cargando}>
+      <input ref={inputRef} type="file" accept=".xlsx" className="hidden" onChange={onFileChosen} />
+      <Button variant="secondary" onClick={() => inputRef.current?.click()} disabled={cargando}>
         Seleccionar archivo Excel…
       </Button>
 
-      {filePath && <p className="mt-2 text-xs text-text-muted">{filePath}</p>}
+      {fileName && <p className="mt-2 text-xs text-text-muted">{fileName}</p>}
+      {error && <p className="mt-2 text-sm text-pegasus-red">{error}</p>}
 
-      {preview && (
+      {preview && !pesoPreview && (
         <div className="mt-4 rounded-control border border-bg-border bg-bg-panel p-4">
           <p className="text-sm">
             Se importarán <strong>{preview.macroPlans.length}</strong> planes de macros y{' '}
-            <strong>{preview.weightEntries.length}</strong> registros de peso.
+            <strong>{preview.weightEntries.length}</strong> registros de peso (el peso se comparte con Pegasus
+            Tracker).
           </p>
           {preview.filasARevisar.length > 0 && (
             <div className="mt-3">
@@ -204,172 +263,67 @@ function ImportarExcelCard({ onImported }: { onImported: () => void }) {
         </div>
       )}
 
-      {resultado && <p className="mt-3 text-sm text-emerald-400">{resultado}</p>}
-    </Card>
-  )
-}
-
-function statusLabel(st: SyncStatus): string {
-  if (st.state === 'syncing') return 'Sincronizando…'
-  if (st.state === 'error') return `Error de sincronización: ${st.lastError ?? ''}`
-  if (st.pendingCount > 0) return `Pendiente (${st.pendingCount})`
-  if (st.lastSyncedAt) return `Sincronizado — ${new Date(st.lastSyncedAt).toLocaleString('es-ES')}`
-  return 'Todavía no se ha sincronizado.'
-}
-
-function CuentaPegasusCard() {
-  const [session, setSession] = useState<PegasusSession | null | undefined>(undefined)
-  const [status, setStatus] = useState<SyncStatus | null>(null)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [cargando, setCargando] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [migration, setMigration] = useState<MigrationPreview | null>(null)
-  const [resolutions, setResolutions] = useState<Record<number, ConflictResolution>>({})
-
-  useEffect(() => {
-    window.pegasus.auth.getSession().then(setSession)
-    window.pegasus.sync.getStatus().then(setStatus)
-    return window.pegasus.sync.onStatusChange(setStatus)
-  }, [])
-
-  async function iniciarSesion() {
-    setCargando(true)
-    setError(null)
-    try {
-      const res = await window.pegasus.auth.signIn(email, password)
-      if (res.error || !res.session) {
-        setError(res.error ?? 'No se pudo iniciar sesión')
-        return
-      }
-      setSession(res.session)
-      setPassword('')
-      const preview = await window.pegasus.sync.previewMigration()
-      if (preview.toUpload > 0 || preview.conflicts.length > 0) setMigration(preview)
-    } finally {
-      setCargando(false)
-    }
-  }
-
-  async function cerrarSesion() {
-    await window.pegasus.auth.signOut()
-    setSession(null)
-  }
-
-  async function sincronizarAhora() {
-    setStatus(await window.pegasus.sync.now())
-  }
-
-  async function confirmarMigracion() {
-    setCargando(true)
-    try {
-      await window.pegasus.sync.applyMigration(resolutions)
-      setMigration(null)
-      setResolutions({})
-    } finally {
-      setCargando(false)
-    }
-  }
-
-  if (session === undefined) return null
-
-  return (
-    <Card>
-      <CardLabel>Cuenta Pegasus</CardLabel>
-      {!session ? (
-        <>
-          <p className="mb-3 text-sm text-text-secondary">
-            Inicia sesión con tu Cuenta Pegasus (la misma que en Pegasus Tracker) para sincronizar tu peso entre las
-            dos apps. Nutrition sigue funcionando igual sin cuenta.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <Field
-              label="Contraseña"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          {error && <p className="mt-2 text-sm text-pegasus-red">{error}</p>}
-          <div className="mt-3 flex justify-end">
-            <Button onClick={iniciarSesion} disabled={cargando}>
-              Iniciar sesión
-            </Button>
-          </div>
-        </>
-      ) : (
-        <>
-          <p className="text-sm font-medium">{session.userEmail}</p>
-          {status && <p className="mt-1 text-xs text-text-muted">{statusLabel(status)}</p>}
-          <div className="mt-3 flex gap-2">
-            <Button variant="secondary" onClick={sincronizarAhora} disabled={status?.state === 'syncing'}>
-              Sincronizar ahora
-            </Button>
-            <Button variant="ghost" onClick={cerrarSesion}>
-              Cerrar sesión
-            </Button>
-          </div>
-        </>
-      )}
-
-      {migration && (
+      {pesoPreview && (
         <div className="mt-4 rounded-control border border-bg-border bg-bg-panel p-4">
           <p className="mb-3 text-sm">
-            {migration.toUpload > 0 && (
-              <>
-                Se subirán {migration.toUpload} registro(s) de peso de este dispositivo.
-                {migration.conflicts.length > 0 && ' '}
-              </>
-            )}
-            {migration.conflicts.length > 0 &&
-              `${migration.conflicts.length} fecha(s) tienen un peso distinto guardado en Nutrition y en Tracker — elige qué hacer con cada una.`}
+            {pesoPreview.conflictos.length} fecha(s) tienen un peso distinto en el Excel y en Pegasus Tracker —
+            elige qué hacer con cada una.
           </p>
-          {migration.conflicts.map((c) => (
-            <div key={c.localId} className="mb-3 rounded-control border border-bg-border p-3 text-sm">
+          {pesoPreview.conflictos.map((c) => (
+            <div key={c.fecha} className="mb-3 rounded-control border border-bg-border p-3 text-sm">
               <p className="mb-2 text-text-secondary">
-                {c.fecha}: Nutrition {c.pesoLocal} kg — Tracker {c.pesoRemoto} kg
+                {c.fecha}: Excel {c.pesoImportado} kg — Tracker {c.pesoExistente} kg
               </p>
               <div className="flex flex-wrap gap-2">
-                {(['both', 'keepLocal', 'keepRemote'] as ConflictResolution[]).map((opt) => (
+                {(
+                  [
+                    ['guardarAmbos', 'Conservar ambos'],
+                    ['usarImportado', 'Usar el del Excel'],
+                    ['usarExistente', 'Quedarme con Tracker'],
+                  ] as [ResolucionConflictoPeso, string][]
+                ).map(([opt, label]) => (
                   <button
                     key={opt}
-                    onClick={() => setResolutions((r) => ({ ...r, [c.localId]: opt }))}
+                    onClick={() => setResolucionesPeso((r) => ({ ...r, [c.fecha]: opt }))}
                     className={`rounded-control border px-3 py-1.5 text-xs ${
-                      (resolutions[c.localId] ?? 'both') === opt
-                        ? 'border-pegasus-red bg-pegasus-red/10 text-pegasus-red'
+                      (resolucionesPeso[c.fecha] ?? 'guardarAmbos') === opt
+                        ? 'border-pegasus-red bg-pegasus-redSoft text-pegasus-red'
                         : 'border-bg-border text-text-secondary'
                     }`}
                   >
-                    {opt === 'both' ? 'Conservar ambos' : opt === 'keepLocal' ? 'Quedarme con Nutrition' : 'Quedarme con Tracker'}
+                    {label}
                   </button>
                 ))}
               </div>
             </div>
           ))}
           <div className="mt-2 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setMigration(null)}>
-              Ahora no
-            </Button>
-            <Button onClick={confirmarMigracion} disabled={cargando}>
+            <Button onClick={confirmarPesos} disabled={cargando}>
               Confirmar
             </Button>
           </div>
         </div>
       )}
+
+      {resultado && <p className="mt-3 text-sm text-emerald-400">{resultado}</p>}
     </Card>
   )
 }
 
 export function Ajustes() {
-  const { data: mesociclos, refetch: refetchMesociclos } = useMesociclos()
+  const { session } = useSession()
+  const userId = session?.user.id ?? ''
+  // Ajustes es siempre sobre la propia cuenta, nunca sobre un cliente que un
+  // entrenador esté viendo — se consulta explícitamente contra session.user.id,
+  // no contra targetUserId (que apuntaría al cliente activo).
+  const { data: mesociclos, refetch: refetchMesociclos } = useAsyncData(() => listMesociclos(userId), [userId])
 
   return (
     <div className="max-w-4xl">
       <PageHeader title="Ajustes" />
       <div className="flex flex-col gap-4">
+        <SolicitudesPendientesCliente />
         <PerfilCard />
-        <CuentaPegasusCard />
         <MesociclosCard mesociclos={mesociclos ?? []} refetch={refetchMesociclos} />
         <ImportarExcelCard onImported={refetchMesociclos} />
         <DatosCard />

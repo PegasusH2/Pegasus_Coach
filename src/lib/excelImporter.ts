@@ -1,11 +1,12 @@
+// Importador del Excel "Control macros y general" — lee un File del navegador
+// (input type="file") en vez de un path de disco, mismo mapeo columna→campo
+// ya validado contra el Excel real del usuario (ver plan de migración).
 import ExcelJS from 'exceljs'
-import type { ImportPreview, ImportRowIssue, MacroPlanInput, WeightEntryInput } from '@shared/types'
+import type { ImportPreview, ImportRowIssue, MacroPlanInput, WeightEntryInput } from '@/types'
 
 const SHEET_NAME = 'Control macros y general'
-const HEADER_ROW = 8
 const FIRST_DATA_ROW = 9
 
-// Columnas del Excel, ver plan de migración (mapeo columna -> campo).
 const COL = {
   fecha: 1, // A
   neat: 3, // C
@@ -25,16 +26,12 @@ const COL = {
 } as const
 
 function cellValue(row: ExcelJS.Row, col: number): unknown {
-  const cell = row.getCell(col)
-  return cell.value ?? null
+  return row.getCell(col).value ?? null
 }
 
 function toIsoDate(value: unknown): string | null {
-  if (value instanceof Date) {
-    return value.toISOString().slice(0, 10)
-  }
+  if (value instanceof Date) return value.toISOString().slice(0, 10)
   if (typeof value === 'number') {
-    // Fecha serial de Excel (días desde 1899-12-30).
     const ms = Math.round((value - 25569) * 86400 * 1000)
     return new Date(ms).toISOString().slice(0, 10)
   }
@@ -52,19 +49,14 @@ function toNumber(value: unknown): number | null {
 }
 
 function toText(value: unknown): string | null {
-  if (value === null || value === undefined) return null
-  if (value instanceof Date) return null
+  if (value === null || value === undefined || value instanceof Date) return null
   const text = String(value).trim()
   return text === '' ? null : text
 }
 
 const ENTRENAMIENTO_REGEX = /(\d+)\s*d[ií]as?.*?(\d+)\s*min/i
 
-function parseEntrenamiento(raw: string | null): {
-  dias: number | null
-  minutos: number | null
-  reconocido: boolean
-} {
+function parseEntrenamiento(raw: string | null): { dias: number | null; minutos: number | null; reconocido: boolean } {
   if (!raw) return { dias: null, minutos: null, reconocido: false }
   const match = ENTRENAMIENTO_REGEX.exec(raw)
   if (!match) return { dias: null, minutos: null, reconocido: false }
@@ -76,28 +68,27 @@ function combineNotas(...partes: (string | null)[]): string | null {
   return validas.length > 0 ? validas.join(' · ') : null
 }
 
-export async function buildImportPreview(filePath: string): Promise<ImportPreview> {
+export async function buildImportPreview(file: File): Promise<ImportPreview> {
+  const buffer = await file.arrayBuffer()
   const workbook = new ExcelJS.Workbook()
-  await workbook.xlsx.readFile(filePath)
+  await workbook.xlsx.load(buffer)
   const sheet = workbook.getWorksheet(SHEET_NAME)
   if (!sheet) {
     throw new Error(`No se encontró la hoja "${SHEET_NAME}" en el Excel seleccionado.`)
   }
 
-  const macroPlans: MacroPlanInput[] = []
-  const weightEntries: WeightEntryInput[] = []
+  const macroPlans: Omit<MacroPlanInput, 'userId'>[] = []
+  const weightEntries: Omit<WeightEntryInput, 'userId'>[] = []
   const filasARevisar: ImportRowIssue[] = []
 
-  const lastRow = sheet.lastRow?.number ?? HEADER_ROW
+  const lastRow = sheet.lastRow?.number ?? FIRST_DATA_ROW
   for (let r = FIRST_DATA_ROW; r <= lastRow; r++) {
     const row = sheet.getRow(r)
-    const fechaRaw = cellValue(row, COL.fecha)
-    const fecha = toIsoDate(fechaRaw)
+    const fecha = toIsoDate(cellValue(row, COL.fecha))
     if (!fecha) continue // fila de plantilla vacía, no es un registro real
 
     const notasFila: string[] = []
 
-    // NEAT: histórico mezcla texto libre y número de pasos objetivo.
     const neatRaw = cellValue(row, COL.neat)
     const neatNum = toNumber(neatRaw)
     let neatObjetivoPasos: number | null = null
@@ -108,11 +99,9 @@ export async function buildImportPreview(filePath: string): Promise<ImportPrevie
       if (neatTexto) notasFila.push(`NEAT (histórico): ${neatTexto}`)
     }
 
-    // AG/SAL: formato histórico no parseable de forma fiable, se guarda como nota.
     const aguaSalTexto = toText(cellValue(row, COL.aguaSal))
     if (aguaSalTexto) notasFila.push(`Agua/Sal (histórico): ${aguaSalTexto}`)
 
-    // Entrenamiento: se intenta reconocer "N días M min"; si no, se guarda tal cual.
     const entrenamientoTexto = toText(cellValue(row, COL.entrenamiento))
     const entrenamientoParseado = parseEntrenamiento(entrenamientoTexto)
     if (entrenamientoTexto && !entrenamientoParseado.reconocido) {
@@ -120,10 +109,7 @@ export async function buildImportPreview(filePath: string): Promise<ImportPrevie
     }
 
     const pesoCorporalRef = toNumber(cellValue(row, COL.peso))
-
-    // % MG: se ignoran placeholders no numéricos (ej. "¿……….?").
     const porcentajeGraso = toNumber(cellValue(row, COL.porcentajeMg))
-
     const normocalorico = toNumber(cellValue(row, COL.normocalorico))
     const diasOn = toNumber(cellValue(row, COL.diasOn))
     const proteinaOn = toNumber(cellValue(row, COL.proteinaOn))
@@ -161,18 +147,9 @@ export async function buildImportPreview(filePath: string): Promise<ImportPrevie
     }
 
     if (notasFila.length > 0) {
-      filasARevisar.push({
-        fila: r,
-        fecha,
-        motivo: notasFila.join('; '),
-      })
+      filasARevisar.push({ fila: r, fecha, motivo: notasFila.join('; ') })
     }
   }
 
-  return {
-    totalFilas: macroPlans.length,
-    macroPlans,
-    weightEntries,
-    filasARevisar,
-  }
+  return { totalFilas: macroPlans.length, macroPlans, weightEntries, filasARevisar }
 }

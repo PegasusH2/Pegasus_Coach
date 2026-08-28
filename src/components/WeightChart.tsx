@@ -1,5 +1,5 @@
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import type { WeightEntry } from '@shared/types'
+import type { WeightEntry } from '@/types'
 import { formatFechaCorta } from '@/lib/format'
 
 export function WeightChart({ entries, height = 220 }: { entries: WeightEntry[]; height?: number }) {

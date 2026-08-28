@@ -1,4 +1,4 @@
-import type { DiaTipo } from '@shared/types'
+import type { DiaTipo } from '@/types'
 
 export function DiaToggle({ value, onChange }: { value: DiaTipo; onChange: (v: DiaTipo) => void }) {
   return (

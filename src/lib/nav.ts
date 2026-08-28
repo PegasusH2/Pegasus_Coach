@@ -1,4 +1,4 @@
-export type Section = 'inicio' | 'macros' | 'peso' | 'progreso' | 'ajustes'
+export type Section = 'inicio' | 'macros' | 'peso' | 'progreso' | 'clientes' | 'ajustes'
 
 export type ProgresoTab = 'peso' | 'medidas' | 'pliegues' | 'evolucion'
 

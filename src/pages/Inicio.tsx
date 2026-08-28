@@ -1,7 +1,8 @@
 import { Activity, Flame, TrendingDown, TrendingUp } from 'lucide-react'
-import { useActiveMacroPlan, useProfile, useWeightEntries } from '@/hooks/useData'
+import { useActiveMacroPlan, useWeightEntries } from '@/hooks/useData'
 import { calcularMacroPlan, cambioEnPeriodo } from '@/lib/calculos'
 import { useDiaTipo } from '@/lib/DiaTipoContext'
+import { useSession } from '@/lib/SessionContext'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { DiaToggle } from '@/components/ui/DiaToggle'
 import { WeightChart } from '@/components/WeightChart'
@@ -9,10 +10,11 @@ import { formatKcal, formatNumero } from '@/lib/format'
 import type { Route } from '@/lib/nav'
 
 export function Inicio({ onNavigate }: { onNavigate: (r: Route) => void }) {
-  const { data: profile } = useProfile()
+  const { profile, clienteActivo } = useSession()
   const { data: plan } = useActiveMacroPlan()
   const { data: weightEntries } = useWeightEntries()
   const { diaTipo, setDiaTipo } = useDiaTipo()
+  const nombreMostrado = clienteActivo?.nombre || profile?.nombre
 
   const calculado = plan ? calcularMacroPlan(plan) : null
   const pesos = weightEntries ?? []
@@ -30,7 +32,7 @@ export function Inicio({ onNavigate }: { onNavigate: (r: Route) => void }) {
     <div className="max-w-5xl">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Hola, {profile?.nombre || 'atleta'}</h1>
+          <h1 className="text-2xl font-bold">Hola, {nombreMostrado || 'atleta'}</h1>
           <p className="mt-1 text-sm capitalize text-text-secondary">{hoy}</p>
         </div>
         <DiaToggle value={diaTipo} onChange={setDiaTipo} />

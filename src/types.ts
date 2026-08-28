@@ -1,32 +1,43 @@
-// Tipos compartidos entre el proceso principal (Electron) y el renderer (React).
-// fecha* siempre en formato ISO 'YYYY-MM-DD'.
+// Tipos de dominio de Pegasus Nutrition. fecha* siempre en formato ISO 'YYYY-MM-DD'.
+// id* son uuid de Postgres (Supabase) — siempre string.
+
+export type Rol = 'personal' | 'entrenador'
 
 export interface Profile {
-  id: number
+  id: string
+  role: Rol
   nombre: string
   pesoInicial: number | null
   fechaInicio: string | null
   neatObjetivoPasos: number | null
 }
 
+export type ProfileInput = Omit<Profile, 'id'>
+
 export interface Mesociclo {
-  id: number
+  id: string
+  userId: string
   numero: number
   nombre: string | null
   fechaInicio: string | null
 }
 
+export type MesocicloInput = Omit<Mesociclo, 'id'>
+
 export interface Semana {
-  id: number
-  mesocicloId: number
+  id: string
+  mesocicloId: string
   numero: number
   fechaInicio: string | null
 }
 
+export type SemanaInput = Omit<Semana, 'id'>
+
 export interface MacroPlan {
-  id: number
+  id: string
+  userId: string
   fecha: string
-  semanaId: number | null
+  semanaId: string | null
   neatObjetivoPasos: number | null
   aguaLitros: number | null
   salGramos: number | null
@@ -63,7 +74,8 @@ export interface MacroPlanCalculado extends MacroPlan {
 }
 
 export interface WeightEntry {
-  id: number
+  id: string
+  userId: string
   fecha: string
   pesoKg: number
   notas: string | null
@@ -72,7 +84,8 @@ export interface WeightEntry {
 export type WeightEntryInput = Omit<WeightEntry, 'id'>
 
 export interface Measurement {
-  id: number
+  id: string
+  userId: string
   fecha: string
   pectoral: number | null
   axila: number | null
@@ -103,8 +116,8 @@ export interface ImportRowIssue {
 
 export interface ImportPreview {
   totalFilas: number
-  macroPlans: MacroPlanInput[]
-  weightEntries: WeightEntryInput[]
+  macroPlans: Omit<MacroPlanInput, 'userId'>[]
+  weightEntries: Omit<WeightEntryInput, 'userId'>[]
   filasARevisar: ImportRowIssue[]
 }
 
@@ -114,43 +127,19 @@ export interface ImportResult {
   mesocicloCreado: Mesociclo
 }
 
-export interface BackupResult {
-  path: string
+// ---------- Entrenador / cliente ----------
+
+export type LinkStatus = 'pending' | 'accepted' | 'revoked'
+
+export interface TrainerClientLink {
+  id: string
+  trainerId: string
+  clientId: string
+  status: LinkStatus
+  createdAt: string
+  respondedAt: string | null
+  // Datos del otro lado del vínculo, para pintar la UI sin una query aparte
+  // (se rellenan a mano al leer, ver src/lib/supabase/trainerRepo.ts).
+  otroNombre?: string | null
+  otroEmail?: string | null
 }
-
-// ---------- Cuenta Pegasus / sincronización (ver electron/sync/) ----------
-
-export interface PegasusSession {
-  userEmail: string | null
-}
-
-export interface SignInResult {
-  session?: PegasusSession
-  error?: string
-}
-
-export type SyncState = 'idle' | 'syncing' | 'error' | 'pending'
-
-export interface SyncStatus {
-  state: SyncState
-  lastSyncedAt: string | null
-  pendingCount: number
-  lastError: string | null
-}
-
-export interface MigrationConflict {
-  localId: number
-  fecha: string
-  pesoLocal: number
-  notasLocal: string | null
-  remoteId: string
-  pesoRemoto: number
-  updatedAt: string
-}
-
-export interface MigrationPreview {
-  toUpload: number
-  conflicts: MigrationConflict[]
-}
-
-export type ConflictResolution = 'both' | 'keepLocal' | 'keepRemote'

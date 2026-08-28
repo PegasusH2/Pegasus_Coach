@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { calcularMacroPlan, calorias, porKg } from './calculos'
-import type { MacroPlan } from '@shared/types'
+import type { MacroPlan } from '@/types'
 
 function basePlan(overrides: Partial<MacroPlan>): MacroPlan {
   return {
-    id: 0,
+    id: 'test-id',
+    userId: 'test-user',
     fecha: '2026-07-13',
     semanaId: null,
     neatObjetivoPasos: null,

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Field } from './Field'
 import { Button } from './Button'
 import { hoyIso } from '@/lib/format'
-import type { Measurement, MeasurementInput } from '@shared/types'
+import { createMeasurement } from '@/lib/supabase/measurementRepo'
+import type { Measurement, MeasurementInput } from '@/types'
 
 export interface CampoMedicion {
   key: keyof Measurement
@@ -12,9 +13,11 @@ export interface CampoMedicion {
 
 /** Formulario genérico de alta de una medición parcial (pliegues o perímetros); ningún campo es obligatorio. */
 export function MeasurementForm({
+  userId,
   campos,
   onSaved,
 }: {
+  userId: string
   campos: CampoMedicion[]
   onSaved: () => void
 }) {
@@ -26,6 +29,7 @@ export function MeasurementForm({
     setGuardando(true)
     try {
       const data: MeasurementInput = {
+        userId,
         fecha,
         pectoral: null,
         axila: null,
@@ -49,7 +53,7 @@ export function MeasurementForm({
           ;(data as Record<string, unknown>)[c.key as string] = Number(raw)
         }
       }
-      await window.pegasus.measurements.create(data)
+      await createMeasurement(data)
       setValores({})
       onSaved()
     } finally {

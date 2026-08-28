@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSession } from '@/lib/SessionContext'
+import { listWeightEntries } from '@/lib/supabase/bodyWeightRepo'
+import { listMacroPlans, getActiveMacroPlan } from '@/lib/supabase/macroPlanRepo'
+import { listMeasurements } from '@/lib/supabase/measurementRepo'
+import { listMesociclos } from '@/lib/supabase/mesocicloRepo'
 
-/** Hook genérico: llama a fetcher() al montar y expone refetch() para recargar tras un cambio. */
+/** Hook genérico: llama a fetcher() al montar/cuando cambian deps y expone refetch(). */
 export function useAsyncData<T>(fetcher: () => Promise<T>, deps: unknown[] = []) {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
@@ -25,26 +30,33 @@ export function useAsyncData<T>(fetcher: () => Promise<T>, deps: unknown[] = [])
   return { data, loading, error, refetch }
 }
 
-export function useProfile() {
-  return useAsyncData(() => window.pegasus.profile.get())
-}
+/** Todos los hooks de datos siguen al `targetUserId` de la sesión: el propio usuario,
+ * o el cliente que un entrenador tenga seleccionado (ver SessionContext). */
 
 export function useMacroPlans() {
-  return useAsyncData(() => window.pegasus.macroPlans.list())
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listMacroPlans(targetUserId) : Promise.resolve([])), [targetUserId])
 }
 
 export function useActiveMacroPlan() {
-  return useAsyncData(() => window.pegasus.macroPlans.getActive())
+  const { targetUserId } = useSession()
+  return useAsyncData(
+    () => (targetUserId ? getActiveMacroPlan(targetUserId) : Promise.resolve(undefined)),
+    [targetUserId],
+  )
 }
 
 export function useWeightEntries() {
-  return useAsyncData(() => window.pegasus.weightEntries.list())
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listWeightEntries(targetUserId) : Promise.resolve([])), [targetUserId])
 }
 
 export function useMeasurements() {
-  return useAsyncData(() => window.pegasus.measurements.list())
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listMeasurements(targetUserId) : Promise.resolve([])), [targetUserId])
 }
 
 export function useMesociclos() {
-  return useAsyncData(() => window.pegasus.mesociclos.list())
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listMesociclos(targetUserId) : Promise.resolve([])), [targetUserId])
 }

@@ -1,6 +1,6 @@
 // Réplica exacta de las fórmulas de la hoja "Control macros y general" del Excel original.
 // No se debe modificar esta lógica sin volver a validar contra el Excel fuente.
-import type { MacroPlan, MacroPlanCalculado } from '@shared/types'
+import type { MacroPlan, MacroPlanCalculado } from '@/types'
 
 const KCAL_PROTEINA = 4
 const KCAL_HIDRATOS = 4
