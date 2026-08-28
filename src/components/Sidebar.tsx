@@ -68,9 +68,7 @@ export function Sidebar({ route, onNavigate, nombrePerfil, rol, onExportar, onIm
     <aside className="flex h-full w-60 shrink-0 flex-col justify-between border-r border-bg-border bg-bg px-3 py-4">
       <div>
         <div className="mb-6 flex items-center gap-2 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-pegasus-red text-white">
-            <PieChart size={16} />
-          </div>
+          <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="Pegasus" className="h-8 w-8 rounded-lg" />
           <div>
             <div className="text-sm font-bold leading-tight">PEGASUS</div>
             <div className="text-[10px] font-medium tracking-widest text-text-muted">NUTRITION</div>

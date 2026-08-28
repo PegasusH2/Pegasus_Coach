@@ -1,53 +1,15 @@
-"""Genera los iconos PWA de Pegasus Nutrition (marca provisional: fondo negro
-redondeado + un pie-chart rojo, mismo lenguaje visual que el logo del Sidebar).
-Sustituir por el icono de marca real de Pegasus cuando exista."""
-import math
+"""Deriva favicon.ico e icon-64.png a partir del logo oficial de Pegasus
+(icon-512.png en public/icons/, el mismo que usa Pegasus Tracker — no un
+mark propio). Ejecutar solo si ese fichero cambia."""
 import os
-from PIL import Image, ImageDraw
+from PIL import Image
 
-BG = (10, 10, 10, 255)
-RED = (232, 56, 61, 255)
-OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "public", "icons")
+ICONS_DIR = os.path.join(os.path.dirname(__file__), "..", "public", "icons")
 PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "..", "public")
-os.makedirs(OUT_DIR, exist_ok=True)
 
+source = Image.open(os.path.join(ICONS_DIR, "icon-512.png")).convert("RGBA")
 
-def draw_mark(size, padding_ratio, maskable=False):
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    corner = size * 0.22
-    if maskable:
-        draw.rectangle([0, 0, size, size], fill=BG)
-    else:
-        draw.rounded_rectangle([0, 0, size, size], radius=corner, fill=BG)
+source.resize((64, 64), Image.LANCZOS).save(os.path.join(ICONS_DIR, "icon-64.png"))
+source.save(os.path.join(PUBLIC_DIR, "favicon.ico"), sizes=[(16, 16), (32, 32), (48, 48), (64, 64)])
 
-    cx, cy = size / 2, size / 2
-    r = size * (0.5 - padding_ratio)
-    draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=RED)
-    # cuña "pie chart": un triangulo negro desde el centro hacia arriba-derecha
-    wedge = [
-        (cx, cy),
-        (cx, cy - r * 1.4),
-        (cx + r * 1.4, cy),
-    ]
-    mask = Image.new("L", (size, size), 0)
-    mdraw = ImageDraw.Draw(mask)
-    mdraw.polygon(wedge, fill=255)
-    black = Image.new("RGBA", (size, size), BG)
-    img.paste(black, (0, 0), mask)
-    return img
-
-
-for size in (64, 180, 192, 512):
-    draw_mark(size, 0.14).save(os.path.join(OUT_DIR, f"icon-{size}.png"))
-
-draw_mark(512, 0.22, maskable=True).save(os.path.join(OUT_DIR, "icon-512-maskable.png"))
-
-favicon_source = draw_mark(256, 0.14)
-favicon_source.save(
-    os.path.join(PUBLIC_DIR, "favicon.ico"),
-    sizes=[(16, 16), (32, 32), (48, 48), (64, 64)],
-)
-
-print("Iconos generados en", OUT_DIR)
-print("favicon.ico generado en", PUBLIC_DIR)
+print("icon-64.png y favicon.ico regenerados a partir del logo de Pegasus")

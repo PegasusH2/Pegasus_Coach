@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { PieChart } from 'lucide-react'
 import { signIn, signUp, authErrorMessage, type Rol } from '@/lib/supabase/auth'
 import { createProfile } from '@/lib/supabase/profileRepo'
 import { useSession } from '@/lib/SessionContext'
@@ -12,9 +11,7 @@ function AuthShell({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen items-center justify-center bg-bg px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-pegasus-red text-white">
-            <PieChart size={22} />
-          </div>
+          <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="Pegasus" className="h-12 w-12 rounded-xl" />
           <div className="text-lg font-bold">PEGASUS NUTRITION</div>
         </div>
         {children}
