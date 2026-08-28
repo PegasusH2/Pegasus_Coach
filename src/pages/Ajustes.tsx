@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Download, FileSpreadsheet, Plus } from 'lucide-react'
 import { useAsyncData } from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
-import { updateProfile } from '@/lib/supabase/profileRepo'
+import { changeRole, updateProfile } from '@/lib/supabase/profileRepo'
+import { RolPicker } from '@/components/ui/RolPicker'
+import type { Rol } from '@/types'
 import { createMesociclo, listMesociclos } from '@/lib/supabase/mesocicloRepo'
 import { createMacroPlansBatch } from '@/lib/supabase/macroPlanRepo'
 import {
@@ -67,6 +69,60 @@ function PerfilCard() {
           Guardar
         </Button>
       </div>
+    </Card>
+  )
+}
+
+function RolCard() {
+  const { session, profile, refreshProfile } = useSession()
+  const [seleccion, setSeleccion] = useState<Rol | null>(null)
+  const [cargando, setCargando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  if (!profile) return null
+  const rolActual = profile.role
+  const pendiente = seleccion !== null && seleccion !== rolActual ? seleccion : null
+
+  async function confirmar() {
+    if (!session || !pendiente) return
+    setCargando(true)
+    setError(null)
+    try {
+      await changeRole(session.user.id, pendiente)
+      await refreshProfile()
+      setSeleccion(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo cambiar el tipo de cuenta')
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardLabel>Tipo de cuenta</CardLabel>
+      <RolPicker value={seleccion ?? rolActual} onChange={setSeleccion} />
+      {pendiente === 'personal' && (
+        <p className="mt-3 text-xs text-pegasus-red">
+          Al pasar a Personal se revocan automáticamente tus vínculos con clientes — dejarás de ver su progreso.
+        </p>
+      )}
+      {pendiente === 'entrenador' && (
+        <p className="mt-3 text-xs text-text-muted">
+          Podrás invitar clientes desde la sección Clientes.
+        </p>
+      )}
+      {error && <p className="mt-2 text-sm text-pegasus-red">{error}</p>}
+      {pendiente && (
+        <div className="mt-3 flex justify-end gap-2">
+          <Button variant="ghost" onClick={() => setSeleccion(null)}>
+            Cancelar
+          </Button>
+          <Button onClick={confirmar} disabled={cargando}>
+            Confirmar cambio a {pendiente === 'entrenador' ? 'Entrenador' : 'Personal'}
+          </Button>
+        </div>
+      )}
     </Card>
   )
 }
@@ -324,6 +380,7 @@ export function Ajustes() {
       <div className="flex flex-col gap-4">
         <SolicitudesPendientesCliente />
         <PerfilCard />
+        <RolCard />
         <MesociclosCard mesociclos={mesociclos ?? []} refetch={refetchMesociclos} />
         <ImportarExcelCard onImported={refetchMesociclos} />
         <DatosCard />

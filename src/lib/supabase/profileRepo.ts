@@ -25,6 +25,16 @@ export async function updateProfile(
   if (error) throw new Error(`Error al actualizar el perfil: ${error.message}`)
 }
 
+/**
+ * Cambia el rol Personal/Entrenador de la propia cuenta. Si se deja de ser
+ * Entrenador, un trigger en la base de datos revoca automáticamente los
+ * vínculos donde esa cuenta era la entrenadora.
+ */
+export async function changeRole(userId: string, role: Rol): Promise<void> {
+  const { error } = await supabase.from('profiles').update({ role }).eq('id', userId)
+  if (error) throw new Error(`Error al cambiar el tipo de cuenta: ${error.message}`)
+}
+
 /** Busca el id de una cuenta por email, vía función RPC (nunca se expone auth.users directamente). */
 export async function findProfileIdByEmail(email: string): Promise<string | undefined> {
   const { data, error } = await supabase.rpc('find_profile_by_email', { p_email: email })
