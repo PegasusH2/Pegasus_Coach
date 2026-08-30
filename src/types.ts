@@ -2,6 +2,7 @@
 // id* son uuid de Postgres (Supabase) — siempre string.
 
 export type Rol = 'personal' | 'entrenador'
+export type TipoDieta = 'flexible' | 'cerrada'
 
 export interface Profile {
   id: string
@@ -10,6 +11,8 @@ export interface Profile {
   pesoInicial: number | null
   fechaInicio: string | null
   neatObjetivoPasos: number | null
+  tipoDieta: TipoDieta
+  dietaCerradaDistingueDias: boolean
 }
 
 export type ProfileInput = Omit<Profile, 'id'>
@@ -126,6 +129,32 @@ export interface ImportResult {
   weightEntriesCreados: number
   mesocicloCreado: Mesociclo
 }
+
+// ---------- Dieta cerrada (alternativa a Macros flexibles, sin cuantificar macros) ----------
+
+export type DiaTipoItem = 'on' | 'off' | 'unico'
+
+export interface ClosedDietPlan {
+  id: string
+  userId: string
+  fecha: string
+  semanaId: string | null
+  notas: string | null
+}
+
+export type ClosedDietPlanInput = Omit<ClosedDietPlan, 'id'>
+
+export interface ClosedDietItem {
+  id: string
+  planId: string
+  diaTipo: DiaTipoItem
+  momento: string | null
+  alimento: string
+  gramos: number
+  orden: number
+}
+
+export type ClosedDietItemInput = Omit<ClosedDietItem, 'id'>
 
 // ---------- Entrenador / cliente ----------
 

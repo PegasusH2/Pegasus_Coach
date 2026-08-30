@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
-import { PieChart as PieChartIcon } from 'lucide-react'
+import { PieChart as PieChartIcon, Plus, Trash2 } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { useActiveMacroPlan } from '@/hooks/useData'
+import { useActiveClosedDietPlan, useActiveMacroPlan, useClosedDietItems, useTargetProfile } from '@/hooks/useData'
 import { calcularMacroPlan } from '@/lib/calculos'
 import { useDiaTipo } from '@/lib/DiaTipoContext'
 import { useSession } from '@/lib/SessionContext'
 import { createMacroPlan, updateMacroPlan } from '@/lib/supabase/macroPlanRepo'
+import { createClosedDietPlan, replaceClosedDietItems } from '@/lib/supabase/closedDietRepo'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { DiaToggle } from '@/components/ui/DiaToggle'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { formatNumero, hoyIso } from '@/lib/format'
-import type { MacroPlanInput } from '@/types'
+import type { ClosedDietItem, ClosedDietItemInput, DiaTipoItem, MacroPlanInput } from '@/types'
 
 function emptyForm(userId: string): MacroPlanInput {
   return {
@@ -46,6 +47,15 @@ function num(v: string): number | null {
 }
 
 export function Macros() {
+  const { data: targetProfile, loading } = useTargetProfile()
+  if (loading && !targetProfile) return null
+  if (targetProfile?.tipoDieta === 'cerrada') {
+    return <DietaCerrada distingueDias={targetProfile.dietaCerradaDistingueDias} />
+  }
+  return <MacrosFlexibles />
+}
+
+function MacrosFlexibles() {
   const { targetUserId, soloLectura } = useSession()
   const { data: plan, refetch } = useActiveMacroPlan()
   const { diaTipo, setDiaTipo } = useDiaTipo()
@@ -244,6 +254,170 @@ function MacroStat({ label, valor, porKg, color }: { label: string; valor: numbe
       <div className="text-xs text-text-secondary">{label}</div>
       <div className={`text-xl font-bold ${color}`}>{formatNumero(valor, 0)} g</div>
       <div className="text-xs text-text-muted">{formatNumero(porKg, 1)} g/kg</div>
+    </div>
+  )
+}
+
+// ---------- Dieta cerrada: lista de alimentos + gramos, sin cuantificar macros ----------
+
+interface FilaAlimento {
+  momento: string
+  alimento: string
+  gramos: string
+}
+
+function filaVacia(): FilaAlimento {
+  return { momento: '', alimento: '', gramos: '' }
+}
+
+function filaDesdeItem(item: ClosedDietItem): FilaAlimento {
+  return { momento: item.momento ?? '', alimento: item.alimento, gramos: item.gramos.toString() }
+}
+
+function filasAItems(filas: FilaAlimento[], diaTipo: DiaTipoItem): Omit<ClosedDietItemInput, 'planId'>[] {
+  return filas
+    .filter((f) => f.alimento.trim() !== '')
+    .map((f, i) => ({
+      diaTipo,
+      momento: f.momento.trim() || null,
+      alimento: f.alimento.trim(),
+      gramos: Number(f.gramos) || 0,
+      orden: i,
+    }))
+}
+
+function ListaAlimentos({
+  titulo,
+  filas,
+  setFilas,
+  soloLectura,
+}: {
+  titulo: string
+  filas: FilaAlimento[]
+  setFilas: (f: (filas: FilaAlimento[]) => FilaAlimento[]) => void
+  soloLectura: boolean
+}) {
+  function actualizar(index: number, patch: Partial<FilaAlimento>) {
+    setFilas((filas) => filas.map((f, i) => (i === index ? { ...f, ...patch } : f)))
+  }
+  function borrar(index: number) {
+    setFilas((filas) => filas.filter((_, i) => i !== index))
+  }
+
+  return (
+    <Card>
+      <CardLabel>{titulo}</CardLabel>
+      <fieldset disabled={soloLectura} className="flex flex-col gap-2">
+        {filas.map((f, i) => (
+          <div key={i} className="flex items-end gap-2">
+            <Field
+              label="Momento"
+              placeholder="Ej: Desayuno, 8:00…"
+              value={f.momento}
+              onChange={(e) => actualizar(i, { momento: e.target.value })}
+            />
+            <Field label="Alimento" value={f.alimento} onChange={(e) => actualizar(i, { alimento: e.target.value })} />
+            <Field
+              label="Gramos"
+              type="number"
+              suffix="g"
+              value={f.gramos}
+              onChange={(e) => actualizar(i, { gramos: e.target.value })}
+            />
+            {!soloLectura && (
+              <button onClick={() => borrar(i)} className="mb-2 text-text-muted hover:text-pegasus-red">
+                <Trash2 size={16} />
+              </button>
+            )}
+          </div>
+        ))}
+        {filas.length === 0 && <p className="text-sm text-text-muted">Todavía no hay alimentos.</p>}
+        {!soloLectura && (
+          <Button variant="secondary" className="self-start" onClick={() => setFilas((filas) => [...filas, filaVacia()])}>
+            <span className="flex items-center gap-1">
+              <Plus size={14} /> Añadir alimento
+            </span>
+          </Button>
+        )}
+      </fieldset>
+    </Card>
+  )
+}
+
+function DietaCerrada({ distingueDias }: { distingueDias: boolean }) {
+  const { targetUserId, soloLectura } = useSession()
+  const { diaTipo, setDiaTipo } = useDiaTipo()
+  const { data: plan, refetch: refetchPlan } = useActiveClosedDietPlan()
+  const { data: items, refetch: refetchItems } = useClosedDietItems(plan?.id ?? null)
+  const [filasOn, setFilasOn] = useState<FilaAlimento[]>([])
+  const [filasOff, setFilasOff] = useState<FilaAlimento[]>([])
+  const [filasUnico, setFilasUnico] = useState<FilaAlimento[]>([])
+  const [guardando, setGuardando] = useState(false)
+
+  useEffect(() => {
+    if (!items) return
+    setFilasOn(items.filter((i) => i.diaTipo === 'on').map(filaDesdeItem))
+    setFilasOff(items.filter((i) => i.diaTipo === 'off').map(filaDesdeItem))
+    setFilasUnico(items.filter((i) => i.diaTipo === 'unico').map(filaDesdeItem))
+  }, [items])
+
+  function itemsAGuardar(): Omit<ClosedDietItemInput, 'planId'>[] {
+    return distingueDias
+      ? [...filasAItems(filasOn, 'on'), ...filasAItems(filasOff, 'off')]
+      : filasAItems(filasUnico, 'unico')
+  }
+
+  async function guardarCambios() {
+    if (!plan) return
+    setGuardando(true)
+    try {
+      await replaceClosedDietItems(plan.id, itemsAGuardar())
+      await refetchItems()
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  async function registrarNuevaRevision() {
+    if (!targetUserId) return
+    setGuardando(true)
+    try {
+      const nuevoPlan = await createClosedDietPlan({ userId: targetUserId, fecha: hoyIso(), semanaId: null, notas: null })
+      await replaceClosedDietItems(nuevoPlan.id, itemsAGuardar())
+      await refetchPlan()
+      await refetchItems()
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="max-w-5xl">
+      <PageHeader
+        title="Macros"
+        subtitle={plan ? `Dieta activa desde ${plan.fecha}` : 'Todavía no hay ninguna dieta registrada'}
+        actions={distingueDias ? <DiaToggle value={diaTipo} onChange={setDiaTipo} /> : undefined}
+      />
+
+      {distingueDias ? (
+        <div className="grid grid-cols-2 gap-4">
+          <ListaAlimentos titulo="Alimentos — Día ON" filas={filasOn} setFilas={setFilasOn} soloLectura={soloLectura} />
+          <ListaAlimentos titulo="Alimentos — Día OFF" filas={filasOff} setFilas={setFilasOff} soloLectura={soloLectura} />
+        </div>
+      ) : (
+        <ListaAlimentos titulo="Alimentos" filas={filasUnico} setFilas={setFilasUnico} soloLectura={soloLectura} />
+      )}
+
+      {!soloLectura && (
+        <div className="mt-4 flex justify-end gap-3">
+          <Button variant="secondary" onClick={registrarNuevaRevision} disabled={guardando}>
+            Registrar como nueva revisión (hoy)
+          </Button>
+          <Button onClick={guardarCambios} disabled={!plan || guardando}>
+            Guardar cambios
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

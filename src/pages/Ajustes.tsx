@@ -4,7 +4,8 @@ import { useAsyncData } from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
 import { changeRole, updateProfile } from '@/lib/supabase/profileRepo'
 import { RolPicker } from '@/components/ui/RolPicker'
-import type { Rol } from '@/types'
+import type { Rol, TipoDieta } from '@/types'
+import { Salad, UtensilsCrossed } from 'lucide-react'
 import { createMesociclo, listMesociclos } from '@/lib/supabase/mesocicloRepo'
 import { createMacroPlansBatch } from '@/lib/supabase/macroPlanRepo'
 import {
@@ -120,6 +121,79 @@ function RolCard() {
           </Button>
           <Button onClick={confirmar} disabled={cargando}>
             Confirmar cambio a {pendiente === 'entrenador' ? 'Entrenador' : 'Personal'}
+          </Button>
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function TipoDietaCard() {
+  const { session, profile, refreshProfile } = useSession()
+  const [tipoDieta, setTipoDieta] = useState<TipoDieta>('flexible')
+  const [distingueDias, setDistingueDias] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+
+  useEffect(() => {
+    if (profile) {
+      setTipoDieta(profile.tipoDieta)
+      setDistingueDias(profile.dietaCerradaDistingueDias)
+    }
+  }, [profile])
+
+  async function guardar() {
+    if (!session) return
+    setGuardando(true)
+    try {
+      await updateProfile(session.user.id, { tipoDieta, dietaCerradaDistingueDias: distingueDias })
+      await refreshProfile()
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  const huboCambios = profile && (tipoDieta !== profile.tipoDieta || distingueDias !== profile.dietaCerradaDistingueDias)
+
+  return (
+    <Card>
+      <CardLabel>Tipo de dieta</CardLabel>
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => setTipoDieta('flexible')}
+          className={`flex flex-col items-center gap-1.5 rounded-control border p-3 text-sm transition-colors ${
+            tipoDieta === 'flexible' ? 'border-pegasus-red bg-pegasus-redSoft text-pegasus-red' : 'border-bg-border text-text-secondary'
+          }`}
+        >
+          <Salad size={16} />
+          Flexible (macronutrientes)
+        </button>
+        <button
+          onClick={() => setTipoDieta('cerrada')}
+          className={`flex flex-col items-center gap-1.5 rounded-control border p-3 text-sm transition-colors ${
+            tipoDieta === 'cerrada' ? 'border-pegasus-red bg-pegasus-redSoft text-pegasus-red' : 'border-bg-border text-text-secondary'
+          }`}
+        >
+          <UtensilsCrossed size={16} />
+          Cerrada (gramos de alimento)
+        </button>
+      </div>
+
+      {tipoDieta === 'cerrada' && (
+        <label className="mt-3 flex items-center gap-2 text-sm text-text-secondary">
+          <input
+            type="checkbox"
+            className="accent-pegasus-red"
+            checked={distingueDias}
+            onChange={(e) => setDistingueDias(e.target.checked)}
+          />
+          Distinguir Día ON / Día OFF
+        </label>
+      )}
+
+      {huboCambios && (
+        <div className="mt-3 flex justify-end">
+          <Button onClick={guardar} disabled={guardando}>
+            Guardar
           </Button>
         </div>
       )}
@@ -381,6 +455,7 @@ export function Ajustes() {
         <SolicitudesPendientesCliente />
         <PerfilCard />
         <RolCard />
+        <TipoDietaCard />
         <MesociclosCard mesociclos={mesociclos ?? []} refetch={refetchMesociclos} />
         <ImportarExcelCard onImported={refetchMesociclos} />
         <DatosCard />
