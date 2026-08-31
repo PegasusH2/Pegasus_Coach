@@ -2,7 +2,7 @@
 // id* son uuid de Postgres (Supabase) — siempre string.
 
 export type Rol = 'personal' | 'entrenador'
-export type TipoDieta = 'flexible' | 'cerrada'
+export type TipoDieta = 'macros' | 'cerrada'
 
 export interface Profile {
   id: string

@@ -4,7 +4,7 @@ import { listWeightEntries } from '@/lib/supabase/bodyWeightRepo'
 import { listMacroPlans, getActiveMacroPlan } from '@/lib/supabase/macroPlanRepo'
 import { listMeasurements } from '@/lib/supabase/measurementRepo'
 import { listMesociclos } from '@/lib/supabase/mesocicloRepo'
-import { getActiveClosedDietPlan, listClosedDietItems } from '@/lib/supabase/closedDietRepo'
+import { getActiveClosedDietPlan, listClosedDietItems, listClosedDietPlans } from '@/lib/supabase/closedDietRepo'
 import { getProfile } from '@/lib/supabase/profileRepo'
 import { getResumenEntrenador } from '@/lib/supabase/dashboardRepo'
 import { listPaymentsByLink } from '@/lib/supabase/paymentRepo'
@@ -77,6 +77,11 @@ export function useActiveClosedDietPlan() {
 
 export function useClosedDietItems(planId: string | null) {
   return useAsyncData(() => (planId ? listClosedDietItems(planId) : Promise.resolve([])), [planId])
+}
+
+export function useClosedDietPlans() {
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listClosedDietPlans(targetUserId) : Promise.resolve([])), [targetUserId])
 }
 
 /** Perfil de a quién apuntan las pantallas ahora mismo (uno mismo, o el cliente que

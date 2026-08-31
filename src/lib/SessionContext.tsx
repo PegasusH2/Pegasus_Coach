@@ -2,7 +2,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase/client'
 import { getProfile } from './supabase/profileRepo'
-import type { Profile } from '@/types'
+import { listAsClient } from './supabase/trainerRepo'
+import type { Profile, TrainerClientLink } from '@/types'
 
 interface ClienteActivo {
   id: string
@@ -25,6 +26,14 @@ interface SessionContextValue {
   /** A qué usuario apuntan las pantallas ahora mismo: el propio, o el cliente seleccionado por un entrenador. */
   targetUserId: string | null
   soloLectura: boolean
+  /** Vínculo aceptado donde YO soy el cliente (si existe) — mi propio entrenador, no el de un cliente que esté viendo. */
+  miVinculoEntrenador: TrainerClientLink | null
+  /** Atajo de `miVinculoEntrenador !== null`. */
+  tengoEntrenadorAceptado: boolean
+  /** Igual que `soloLectura` pero para Macros/Dieta cerrada: el entrenador SÍ puede
+   * editar el contenido nutricional del cliente que esté viendo (a diferencia de
+   * Peso/Progreso), y el propio cliente pierde la edición si tiene entrenador. */
+  soloLecturaNutricion: boolean
   /** true tras entrar desde el enlace de "recuperar contraseña" del email — hay
    * sesión, pero antes de nada hay que dejar poner una contraseña nueva. */
   recoveryMode: boolean
@@ -39,12 +48,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [profileChecked, setProfileChecked] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [clienteActivo, setClienteActivo] = useState<ClienteActivo | null>(null)
+  const [miVinculoEntrenador, setMiVinculoEntrenador] = useState<TrainerClientLink | null>(null)
   const [recoveryMode, setRecoveryMode] = useState(false)
 
   async function loadProfile(userId: string) {
     try {
-      const p = await getProfile(userId)
+      const [p, links] = await Promise.all([getProfile(userId), listAsClient(userId)])
       setProfile(p ?? null)
+      setMiVinculoEntrenador(links.find((l) => l.status === 'accepted') ?? null)
       setProfileError(null)
     } catch (err) {
       setProfileError(err instanceof Error ? err.message : String(err))
@@ -65,6 +76,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (newSession) loadProfile(newSession.user.id)
       else {
         setProfile(null)
+        setMiVinculoEntrenador(null)
         setProfileChecked(false)
         setProfileError(null)
       }
@@ -73,6 +85,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const targetUserId = clienteActivo?.id ?? session?.user.id ?? null
+  const tengoEntrenadorAceptado = miVinculoEntrenador !== null
 
   return (
     <SessionContext.Provider
@@ -86,6 +99,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setClienteActivo,
         targetUserId,
         soloLectura: clienteActivo !== null,
+        miVinculoEntrenador,
+        tengoEntrenadorAceptado,
+        soloLecturaNutricion: clienteActivo !== null ? false : tengoEntrenadorAceptado,
         recoveryMode,
         clearRecoveryMode: () => setRecoveryMode(false),
       }}

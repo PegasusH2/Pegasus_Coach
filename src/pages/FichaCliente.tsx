@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
+import { TipoNutricionCard } from '@/components/ui/TipoNutricionCard'
 import { Macros } from './Macros'
 import { Peso } from './Peso'
 import { Progreso } from './Progreso'
@@ -18,7 +19,7 @@ import type { EstadoRevision } from '@/types'
 
 const TABS: { key: FichaTab; label: string }[] = [
   { key: 'datos', label: 'Datos' },
-  { key: 'macros', label: 'Macros / Dieta' },
+  { key: 'macros', label: 'Nutrición' },
   { key: 'peso', label: 'Peso' },
   { key: 'progreso', label: 'Progreso' },
   { key: 'entrenamiento', label: 'Entrenamiento' },
@@ -28,7 +29,7 @@ const TABS: { key: FichaTab; label: string }[] = [
 
 export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (r: Route) => void }) {
   const { clienteActivo, setClienteActivo } = useSession()
-  const { data: perfilCliente } = useTargetProfile()
+  const { data: perfilCliente, refetch: refetchPerfilCliente } = useTargetProfile()
   const [progresoTab, setProgresoTab] = useState<ProgresoTab>('evolucion')
 
   function volver() {
@@ -70,7 +71,19 @@ export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (
       </div>
 
       {tab === 'datos' && <DatosTab />}
-      {tab === 'macros' && <Macros />}
+      {tab === 'macros' && perfilCliente && (
+        <div className="flex flex-col gap-4">
+          <TipoNutricionCard
+            userId={clienteActivo.id}
+            tipoActual={perfilCliente.tipoDieta}
+            distingueDiasActual={perfilCliente.dietaCerradaDistingueDias}
+            bloqueado={false}
+            nombreCliente={clienteActivo.nombre}
+            onGuardado={refetchPerfilCliente}
+          />
+          <Macros key={perfilCliente.tipoDieta} />
+        </div>
+      )}
       {tab === 'peso' && <Peso />}
       {tab === 'progreso' && <Progreso tab={progresoTab} onNavigate={(r) => setProgresoTab(r.progresoTab ?? 'evolucion')} />}
       {tab === 'entrenamiento' && <EntrenamientoTab />}
@@ -102,10 +115,6 @@ function DatosTab() {
         <div>
           <div className="text-xs text-text-muted">NEAT objetivo</div>
           <div className="font-medium">{formatNumero(perfil.neatObjetivoPasos, 0)} pasos</div>
-        </div>
-        <div>
-          <div className="text-xs text-text-muted">Tipo de dieta</div>
-          <div className="font-medium">{perfil.tipoDieta === 'cerrada' ? 'Cerrada' : 'Flexible'}</div>
         </div>
       </div>
     </Card>

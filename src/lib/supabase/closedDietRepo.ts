@@ -1,9 +1,14 @@
-import { getOneByUser, insertRow, updateRow } from './crud'
+import { getOneByUser, insertRow, listByUser, updateRow } from './crud'
 import { supabase } from './client'
 import type { ClosedDietItem, ClosedDietItemInput, ClosedDietPlan, ClosedDietPlanInput } from '@/types'
 
 const PLAN_TABLE = 'nutrition_closed_diet_plan'
 const ITEM_TABLE = 'nutrition_closed_diet_item'
+
+/** Histórico completo, más reciente primero — para el Histórico nutricional unificado. */
+export function listClosedDietPlans(userId: string): Promise<ClosedDietPlan[]> {
+  return listByUser<ClosedDietPlan>(PLAN_TABLE, userId, 'fecha')
+}
 
 /** El plan "activo" es el más reciente por fecha, igual que el plan de macros. */
 export function getActiveClosedDietPlan(userId: string): Promise<ClosedDietPlan | undefined> {

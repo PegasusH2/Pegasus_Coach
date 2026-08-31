@@ -1,6 +1,6 @@
 export type Section = 'inicio' | 'macros' | 'peso' | 'progreso' | 'clientes' | 'ficha' | 'revisiones' | 'ajustes'
 
-// 'macros' cubre tanto dieta flexible como cerrada — <Macros/> ya decide cuál mostrar según el cliente.
+// 'macros' cubre tanto el modo Macros como Dieta cerrada — <Macros/> ya decide cuál mostrar según el cliente.
 export type FichaTab = 'datos' | 'macros' | 'peso' | 'progreso' | 'entrenamiento' | 'revisiones' | 'pagos'
 
 export type ProgresoTab = 'peso' | 'medidas' | 'pliegues' | 'evolucion'

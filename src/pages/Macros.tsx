@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import { PieChart as PieChartIcon, Plus, Trash2 } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { useActiveClosedDietPlan, useActiveMacroPlan, useClosedDietItems, useTargetProfile } from '@/hooks/useData'
+import {
+  useActiveClosedDietPlan,
+  useActiveMacroPlan,
+  useClosedDietItems,
+  useClosedDietPlans,
+  useMacroPlans,
+  useTargetProfile,
+} from '@/hooks/useData'
 import { calcularMacroPlan } from '@/lib/calculos'
 import { useDiaTipo } from '@/lib/DiaTipoContext'
 import { useSession } from '@/lib/SessionContext'
@@ -12,8 +19,11 @@ import { DiaToggle } from '@/components/ui/DiaToggle'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { formatNumero, hoyIso } from '@/lib/format'
-import type { ClosedDietItem, ClosedDietItemInput, DiaTipoItem, MacroPlanInput } from '@/types'
+import { construirHistorico } from '@/lib/historico'
+import { formatFechaCorta, formatNumero, hoyIso } from '@/lib/format'
+import type { ClosedDietItem, ClosedDietItemInput, DiaTipoItem, MacroPlanInput, TipoDieta } from '@/types'
+
+type NutricionTab = 'contenido' | 'historico'
 
 function emptyForm(userId: string): MacroPlanInput {
   return {
@@ -48,15 +58,82 @@ function num(v: string): number | null {
 
 export function Macros() {
   const { data: targetProfile, loading } = useTargetProfile()
+  const [tab, setTab] = useState<NutricionTab>('contenido')
   if (loading && !targetProfile) return null
-  if (targetProfile?.tipoDieta === 'cerrada') {
-    return <DietaCerrada distingueDias={targetProfile.dietaCerradaDistingueDias} />
-  }
-  return <MacrosFlexibles />
+
+  const tipoDieta: TipoDieta = targetProfile?.tipoDieta ?? 'macros'
+  const labelContenido = tipoDieta === 'cerrada' ? 'Dieta' : 'Macros'
+
+  return (
+    <>
+      <div className="mb-5 flex gap-1 rounded-control bg-bg-panel p-1 w-fit">
+        {(
+          [
+            { key: 'contenido' as const, label: labelContenido },
+            { key: 'historico' as const, label: 'Histórico' },
+          ] as { key: NutricionTab; label: string }[]
+        ).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`rounded-[8px] px-4 py-1.5 text-sm font-semibold transition-colors ${
+              tab === t.key ? 'bg-pegasus-red text-white' : 'text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'historico' ? (
+        <HistoricoNutricional tipoDietaActual={tipoDieta} />
+      ) : tipoDieta === 'cerrada' ? (
+        <DietaCerrada distingueDias={targetProfile?.dietaCerradaDistingueDias ?? false} />
+      ) : (
+        <MacrosFlexibles />
+      )}
+    </>
+  )
+}
+
+function HistoricoNutricional({ tipoDietaActual }: { tipoDietaActual: TipoDieta }) {
+  const { data: macroPlans } = useMacroPlans()
+  const { data: closedDietPlans } = useClosedDietPlans()
+  const historico = construirHistorico(macroPlans ?? [], closedDietPlans ?? [], tipoDietaActual)
+
+  return (
+    <div className="max-w-5xl">
+      <PageHeader title="Histórico nutricional" subtitle="Macros y Dieta cerrada, todo el pasado conservado" />
+      <Card>
+        {historico.length === 0 && <p className="text-sm text-text-muted">Todavía no hay ningún registro nutricional.</p>}
+        <div className="flex flex-col divide-y divide-bg-border">
+          {historico.map((entrada, i) => (
+            <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{formatFechaCorta(entrada.fecha)}</span>
+                  {entrada.actual && (
+                    <span className="rounded-full bg-pegasus-redSoft px-2 py-0.5 text-xs font-semibold text-pegasus-red">
+                      Actual
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-text-muted">{entrada.tipo === 'cerrada' ? 'Dieta cerrada' : 'Macros'}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-medium">{entrada.resumenPrincipal}</div>
+                {entrada.resumenSecundario && <div className="text-xs text-text-muted">{entrada.resumenSecundario}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
 }
 
 function MacrosFlexibles() {
-  const { targetUserId, soloLectura } = useSession()
+  const { targetUserId, soloLecturaNutricion: soloLectura } = useSession()
   const { data: plan, refetch } = useActiveMacroPlan()
   const { diaTipo, setDiaTipo } = useDiaTipo()
   const [form, setForm] = useState<MacroPlanInput>(emptyForm(targetUserId ?? ''))
@@ -345,7 +422,7 @@ function ListaAlimentos({
 }
 
 function DietaCerrada({ distingueDias }: { distingueDias: boolean }) {
-  const { targetUserId, soloLectura } = useSession()
+  const { targetUserId, soloLecturaNutricion: soloLectura } = useSession()
   const { diaTipo, setDiaTipo } = useDiaTipo()
   const { data: plan, refetch: refetchPlan } = useActiveClosedDietPlan()
   const { data: items, refetch: refetchItems } = useClosedDietItems(plan?.id ?? null)
@@ -394,7 +471,7 @@ function DietaCerrada({ distingueDias }: { distingueDias: boolean }) {
   return (
     <div className="max-w-5xl">
       <PageHeader
-        title="Macros"
+        title="Dieta cerrada"
         subtitle={plan ? `Dieta activa desde ${plan.fecha}` : 'Todavía no hay ninguna dieta registrada'}
         actions={distingueDias ? <DiaToggle value={diaTipo} onChange={setDiaTipo} /> : undefined}
       />
