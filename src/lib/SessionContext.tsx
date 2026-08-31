@@ -23,6 +23,10 @@ interface SessionContextValue {
   /** A qué usuario apuntan las pantallas ahora mismo: el propio, o el cliente seleccionado por un entrenador. */
   targetUserId: string | null
   soloLectura: boolean
+  /** true tras entrar desde el enlace de "recuperar contraseña" del email — hay
+   * sesión, pero antes de nada hay que dejar poner una contraseña nueva. */
+  recoveryMode: boolean
+  clearRecoveryMode: () => void
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null)
@@ -33,6 +37,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [profileChecked, setProfileChecked] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [clienteActivo, setClienteActivo] = useState<ClienteActivo | null>(null)
+  const [recoveryMode, setRecoveryMode] = useState(false)
 
   async function loadProfile(userId: string) {
     try {
@@ -51,7 +56,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setSession(data.session)
       if (data.session) loadProfile(data.session.user.id)
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true)
       setSession(newSession)
       setClienteActivo(null)
       if (newSession) loadProfile(newSession.user.id)
@@ -78,6 +84,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setClienteActivo,
         targetUserId,
         soloLectura: clienteActivo !== null,
+        recoveryMode,
+        clearRecoveryMode: () => setRecoveryMode(false),
       }}
     >
       {children}

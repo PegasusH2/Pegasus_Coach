@@ -6,7 +6,7 @@ import { SessionProvider, useSession } from './lib/SessionContext'
 import { signOut } from './lib/supabase/auth'
 import { exportarDatosJson } from './lib/exportData'
 import type { Route } from './lib/nav'
-import { Auth, CompletarPerfil } from './pages/Auth'
+import { ActualizarPassword, Auth, CompletarPerfil } from './pages/Auth'
 import { Inicio } from './pages/Inicio'
 import { Macros } from './pages/Macros'
 import { Peso } from './pages/Peso'
@@ -16,7 +16,7 @@ import { Ajustes } from './pages/Ajustes'
 
 function AppShell() {
   const [route, setRoute] = useState<Route>({ section: 'inicio' })
-  const { session, profile, profileChecked, profileError, clienteActivo, setClienteActivo } = useSession()
+  const { session, profile, profileChecked, profileError, clienteActivo, setClienteActivo, recoveryMode } = useSession()
 
   // Al cambiar de cuenta (o cerrar sesión), no debe quedar la sección de una
   // pantalla que quizá no aplique al nuevo rol (p.ej. "clientes").
@@ -28,6 +28,7 @@ function AppShell() {
     return <div className="flex h-screen items-center justify-center bg-bg text-text-muted">Cargando…</div>
   }
   if (!session) return <Auth />
+  if (recoveryMode) return <ActualizarPassword />
   if (profileError) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-2 bg-bg px-4 text-center">

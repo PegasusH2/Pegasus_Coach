@@ -29,6 +29,19 @@ export async function signOut(): Promise<void> {
   if (error) throw error
 }
 
+/** Manda el email de "recuperar contraseña" — el enlace vuelve a esta misma app. */
+export async function sendPasswordReset(email: string): Promise<void> {
+  const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+  if (error) throw error
+}
+
+/** Cambia la contraseña de la sesión de recuperación activa (tras pulsar el enlace del email). */
+export async function updatePassword(password: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) throw error
+}
+
 export async function getSession(): Promise<Session | null> {
   const { data } = await supabase.auth.getSession()
   return data.session

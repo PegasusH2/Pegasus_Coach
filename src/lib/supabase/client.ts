@@ -14,6 +14,8 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
+    // Necesario para que el enlace de "recuperar contraseña" del email
+    // funcione: Supabase manda el token en la URL al volver a la app.
+    detectSessionInUrl: true,
   },
 })

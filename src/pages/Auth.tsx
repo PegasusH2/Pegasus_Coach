@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { signIn, signUp, authErrorMessage, type Rol } from '@/lib/supabase/auth'
+import { signIn, signUp, sendPasswordReset, updatePassword, authErrorMessage, type Rol } from '@/lib/supabase/auth'
 import { createProfile } from '@/lib/supabase/profileRepo'
 import { useSession } from '@/lib/SessionContext'
 import { Field } from '@/components/ui/Field'
@@ -21,7 +21,7 @@ function AuthShell({ children }: { children: React.ReactNode }) {
 }
 
 export function Auth() {
-  const [modo, setModo] = useState<'entrar' | 'registro'>('entrar')
+  const [modo, setModo] = useState<'entrar' | 'registro' | 'recuperar'>('entrar')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [nombre, setNombre] = useState('')
@@ -30,11 +30,22 @@ export function Auth() {
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
 
+  function cambiarModo(m: 'entrar' | 'registro' | 'recuperar') {
+    setModo(m)
+    setError(null)
+    setAviso(null)
+  }
+
   async function enviar() {
     setCargando(true)
     setError(null)
     setAviso(null)
     try {
+      if (modo === 'recuperar') {
+        await sendPasswordReset(email)
+        setAviso('Te hemos enviado un email con un enlace para elegir una nueva contraseña.')
+        return
+      }
       if (modo === 'entrar') {
         await signIn(email, password)
       } else {
@@ -49,11 +60,30 @@ export function Auth() {
     }
   }
 
+  if (modo === 'recuperar') {
+    return (
+      <AuthShell>
+        <div className="flex flex-col gap-3 rounded-card border border-bg-border bg-bg-card p-5">
+          <p className="text-sm text-text-secondary">Te mandamos un enlace a tu email para elegir una nueva contraseña.</p>
+          <Field label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          {error && <p className="text-sm text-pegasus-red">{error}</p>}
+          {aviso && <p className="text-sm text-emerald-400">{aviso}</p>}
+          <Button onClick={enviar} disabled={cargando || !email}>
+            Enviar enlace
+          </Button>
+          <button onClick={() => cambiarModo('entrar')} className="text-xs text-text-muted hover:text-text-secondary">
+            Volver a iniciar sesión
+          </button>
+        </div>
+      </AuthShell>
+    )
+  }
+
   return (
     <AuthShell>
       <div className="mb-5 flex gap-1 rounded-control bg-bg-panel p-1">
         <button
-          onClick={() => setModo('entrar')}
+          onClick={() => cambiarModo('entrar')}
           className={`flex-1 rounded-[8px] py-1.5 text-sm font-semibold transition-colors ${
             modo === 'entrar' ? 'bg-pegasus-red text-white' : 'text-text-secondary hover:text-text-primary'
           }`}
@@ -61,7 +91,7 @@ export function Auth() {
           Iniciar sesión
         </button>
         <button
-          onClick={() => setModo('registro')}
+          onClick={() => cambiarModo('registro')}
           className={`flex-1 rounded-[8px] py-1.5 text-sm font-semibold transition-colors ${
             modo === 'registro' ? 'bg-pegasus-red text-white' : 'text-text-secondary hover:text-text-primary'
           }`}
@@ -90,6 +120,11 @@ export function Auth() {
         <Button onClick={enviar} disabled={cargando || !email || !password}>
           {modo === 'entrar' ? 'Iniciar sesión' : 'Crear cuenta'}
         </Button>
+        {modo === 'entrar' && (
+          <button onClick={() => cambiarModo('recuperar')} className="text-xs text-text-muted hover:text-text-secondary">
+            ¿Olvidaste tu contraseña?
+          </button>
+        )}
       </div>
     </AuthShell>
   )
@@ -130,6 +165,46 @@ export function CompletarPerfil() {
         {error && <p className="text-sm text-pegasus-red">{error}</p>}
         <Button onClick={completar} disabled={cargando || !nombre}>
           Continuar
+        </Button>
+      </div>
+    </AuthShell>
+  )
+}
+
+/** Se muestra al volver del enlace de "recuperar contraseña" del email. */
+export function ActualizarPassword() {
+  const { clearRecoveryMode } = useSession()
+  const [password, setPassword] = useState('')
+  const [password2, setPassword2] = useState('')
+  const [cargando, setCargando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function guardar() {
+    if (password !== password2) {
+      setError('Las dos contraseñas no coinciden')
+      return
+    }
+    setCargando(true)
+    setError(null)
+    try {
+      await updatePassword(password)
+      clearRecoveryMode()
+    } catch (err) {
+      setError(authErrorMessage(err))
+    } finally {
+      setCargando(false)
+    }
+  }
+
+  return (
+    <AuthShell>
+      <div className="flex flex-col gap-3 rounded-card border border-bg-border bg-bg-card p-5">
+        <p className="text-sm text-text-secondary">Elige tu nueva contraseña.</p>
+        <Field label="Nueva contraseña" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Field label="Repite la contraseña" type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} />
+        {error && <p className="text-sm text-pegasus-red">{error}</p>}
+        <Button onClick={guardar} disabled={cargando || !password || !password2}>
+          Guardar contraseña
         </Button>
       </div>
     </AuthShell>
