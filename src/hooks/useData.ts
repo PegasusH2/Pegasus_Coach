@@ -6,6 +6,10 @@ import { listMeasurements } from '@/lib/supabase/measurementRepo'
 import { listMesociclos } from '@/lib/supabase/mesocicloRepo'
 import { getActiveClosedDietPlan, listClosedDietItems } from '@/lib/supabase/closedDietRepo'
 import { getProfile } from '@/lib/supabase/profileRepo'
+import { getResumenEntrenador } from '@/lib/supabase/dashboardRepo'
+import { listPaymentsByLink } from '@/lib/supabase/paymentRepo'
+import { listReviewsByClient } from '@/lib/supabase/reviewRepo'
+import { listWorkoutsConSets } from '@/lib/supabase/trackerReadRepo'
 
 /** Hook genérico: llama a fetcher() al montar/cuando cambian deps y expone refetch(). */
 export function useAsyncData<T>(fetcher: () => Promise<T>, deps: unknown[] = []) {
@@ -86,4 +90,31 @@ export function useTargetProfile() {
     [targetUserId, esUnoMismo],
   )
   return esUnoMismo ? { data: profile, loading: false, error: null, refetch: fetched.refetch } : fetched
+}
+
+// ---------- Centro de control del entrenador (siempre sobre la propia cuenta, el entrenador). ----------
+
+export function useResumenEntrenador() {
+  const { session } = useSession()
+  const trainerId = session?.user.id ?? null
+  return useAsyncData(() => (trainerId ? getResumenEntrenador(trainerId) : Promise.resolve(undefined)), [trainerId])
+}
+
+/** Revisiones y pagos de un cliente concreto — se usan dentro de su ficha, siempre con targetUserId. */
+export function useReviewsCliente() {
+  const { session, targetUserId } = useSession()
+  const trainerId = session?.user.id ?? null
+  return useAsyncData(
+    () => (trainerId && targetUserId ? listReviewsByClient(trainerId, targetUserId) : Promise.resolve([])),
+    [trainerId, targetUserId],
+  )
+}
+
+export function usePaymentsCliente(linkId: string | null) {
+  return useAsyncData(() => (linkId ? listPaymentsByLink(linkId) : Promise.resolve([])), [linkId])
+}
+
+export function useWorkoutsCliente() {
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listWorkoutsConSets(targetUserId) : Promise.resolve([])), [targetUserId])
 }

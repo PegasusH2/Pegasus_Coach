@@ -27,16 +27,22 @@ export async function requestAccess(trainerId: string, clientEmail: string): Pro
 async function withNombres(rows: Record<string, unknown>[], idKey: 'trainerId' | 'clientId'): Promise<TrainerClientLink[]> {
   const ids = [...new Set(rows.map((r) => r[idKey] as string))]
   const nombreById = new Map<string, string>()
+  const emailById = new Map<string, string>()
   if (ids.length > 0) {
-    const { data: profiles } = await supabase.from('profiles').select('id, nombre').in('id', ids)
-    for (const p of profiles ?? []) nombreById.set(p.id as string, p.nombre as string)
+    const { data: profiles } = await supabase.from('profiles').select('id, nombre, email').in('id', ids)
+    for (const p of profiles ?? []) {
+      nombreById.set(p.id as string, p.nombre as string)
+      if (p.email) emailById.set(p.id as string, p.email as string)
+    }
   }
   return rows.map((r) => ({
     ...r,
     otroNombre: nombreById.get(r[idKey] as string) || null,
-    // Solo aplica del lado del entrenador: si el cliente invitado todavía no
-    // tiene perfil (nombre vacío), se muestra el email con el que se le invitó.
-    otroEmail: idKey === 'clientId' ? ((r.clientEmailAtInvite as string | null) ?? null) : null,
+    // Email real del perfil si ya existe; si no (cliente invitado que aún no
+    // ha entrado a Nutrition), se cae al email con el que se le invitó.
+    otroEmail:
+      emailById.get(r[idKey] as string) ||
+      (idKey === 'clientId' ? ((r.clientEmailAtInvite as string | null) ?? null) : null),
   })) as unknown as TrainerClientLink[]
 }
 

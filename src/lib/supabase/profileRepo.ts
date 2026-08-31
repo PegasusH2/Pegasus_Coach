@@ -12,8 +12,8 @@ export async function getProfile(userId: string): Promise<Profile | undefined> {
 
 /** Crea la fila de profiles para una cuenta que ya existe en Supabase Auth (p.ej. venida de
  * Pegasus Tracker) pero todavía no ha completado el alta específica de Nutrition (rol, nombre). */
-export async function createProfile(userId: string, role: Rol, nombre: string): Promise<void> {
-  const { error } = await supabase.from('profiles').insert({ id: userId, role, nombre })
+export async function createProfile(userId: string, role: Rol, nombre: string, email: string | null): Promise<void> {
+  const { error } = await supabase.from('profiles').insert({ id: userId, role, nombre, email })
   if (error) throw new Error(`Error al crear el perfil: ${error.message}`)
 }
 

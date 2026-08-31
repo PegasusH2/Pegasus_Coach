@@ -7,6 +7,8 @@ import type { Profile } from '@/types'
 interface ClienteActivo {
   id: string
   nombre: string
+  /** Id del vínculo trainer_client_links — necesario para pagos, ligados al vínculo, no solo al cliente. */
+  linkId: string
 }
 
 interface SessionContextValue {

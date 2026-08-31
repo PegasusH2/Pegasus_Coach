@@ -12,6 +12,8 @@ import { Macros } from './pages/Macros'
 import { Peso } from './pages/Peso'
 import { Progreso } from './pages/Progreso'
 import { Clientes } from './pages/Clientes'
+import { FichaCliente } from './pages/FichaCliente'
+import { Revisiones } from './pages/Revisiones'
 import { Ajustes } from './pages/Ajustes'
 
 function AppShell() {
@@ -86,6 +88,10 @@ function AppShell() {
               <Progreso tab={route.progresoTab ?? 'evolucion'} onNavigate={setRoute} />
             )}
             {route.section === 'clientes' && profile.role === 'entrenador' && <Clientes onNavigate={setRoute} />}
+            {route.section === 'ficha' && profile.role === 'entrenador' && (
+              <FichaCliente tab={route.fichaTab ?? 'datos'} onNavigate={setRoute} />
+            )}
+            {route.section === 'revisiones' && profile.role === 'entrenador' && <Revisiones />}
             {route.section === 'ajustes' && <Ajustes />}
           </main>
         </div>

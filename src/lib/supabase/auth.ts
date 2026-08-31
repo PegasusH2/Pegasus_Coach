@@ -10,7 +10,7 @@ export async function signUp(email: string, password: string, rol: Rol, nombre: 
 
   const { error: profileError } = await supabase
     .from('profiles')
-    .insert({ id: data.user.id, role: rol, nombre })
+    .insert({ id: data.user.id, role: rol, nombre, email: data.user.email })
   if (profileError) throw profileError
 
   if (!data.session) throw new Error('CONFIRM_EMAIL')

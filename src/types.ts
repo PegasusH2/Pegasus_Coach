@@ -8,6 +8,7 @@ export interface Profile {
   id: string
   role: Rol
   nombre: string
+  email: string | null
   pesoInicial: number | null
   fechaInicio: string | null
   neatObjetivoPasos: number | null
@@ -155,6 +156,76 @@ export interface ClosedDietItem {
 }
 
 export type ClosedDietItemInput = Omit<ClosedDietItem, 'id'>
+
+// ---------- Revisiones y pagos (centro de control del entrenador) ----------
+
+export type EstadoRevision = 'pendiente' | 'recibida' | 'revisada'
+
+export interface Review {
+  id: string
+  trainerId: string
+  clientId: string
+  fechaProgramada: string
+  estado: EstadoRevision
+  fechaRecepcion: string | null
+  notas: string | null
+  createdAt: string
+  // Rellenado a mano al leer, igual que TrainerClientLink.otroNombre.
+  clienteNombre?: string | null
+}
+
+export type ReviewInput = Omit<Review, 'id' | 'createdAt' | 'clienteNombre'>
+
+export type PaymentStatus = 'paid' | 'pending'
+export type PaymentSource = 'manual' | 'external'
+
+export interface Payment {
+  id: string
+  linkId: string
+  trainerId: string
+  clientId: string
+  status: PaymentStatus
+  source: PaymentSource
+  amount: number | null
+  paymentDate: string | null
+  nextPaymentDate: string | null
+  externalProvider: string | null
+  externalPaymentId: string | null
+  notes: string | null
+  createdAt: string
+}
+
+export type PaymentInput = Omit<Payment, 'id' | 'createdAt'>
+
+// ---------- Lectura de solo lectura del entrenamiento real en Pegasus Tracker ----------
+// Estas tablas pertenecen a Tracker (mismo proyecto Supabase) — aquí solo se leen,
+// nunca se escriben. Solo se listan los campos que se muestran en la ficha del cliente.
+
+export interface TrackerWorkout {
+  id: string
+  userId: string
+  name: string | null
+  date: string
+  completed: boolean
+}
+
+export interface TrackerSet {
+  id: string
+  workoutExerciseId: string
+  setNumber: number
+  weight: number | null
+  reps: number | null
+  rir: number | null
+  done: boolean
+}
+
+export interface TrackerWorkoutExercise {
+  id: string
+  workoutId: string
+  exerciseId: string
+  exerciseNombre: string | null
+  sets: TrackerSet[]
+}
 
 // ---------- Entrenador / cliente ----------
 

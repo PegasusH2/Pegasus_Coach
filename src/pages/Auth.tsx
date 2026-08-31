@@ -144,7 +144,7 @@ export function CompletarPerfil() {
     setCargando(true)
     setError(null)
     try {
-      await createProfile(session.user.id, rol, nombre)
+      await createProfile(session.user.id, rol, nombre, session.user.email ?? null)
       await refreshProfile()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar el perfil')

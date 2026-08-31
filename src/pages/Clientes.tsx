@@ -31,9 +31,9 @@ export function Clientes({ onNavigate }: { onNavigate: (r: Route) => void }) {
     }
   }
 
-  function verCliente(id: string, nombre: string) {
-    setClienteActivo({ id, nombre })
-    onNavigate({ section: 'inicio' })
+  function verCliente(id: string, nombre: string, linkId: string) {
+    setClienteActivo({ id, nombre, linkId })
+    onNavigate({ section: 'ficha', fichaTab: 'datos' })
   }
 
   const aceptados = (links ?? []).filter((l) => l.status === 'accepted')
@@ -67,7 +67,7 @@ export function Clientes({ onNavigate }: { onNavigate: (r: Route) => void }) {
             <div key={l.id} className="flex items-center justify-between rounded-control border border-bg-border p-3">
               <span className="text-sm font-medium">{l.otroNombre || l.otroEmail || 'Cliente'}</span>
               <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => verCliente(l.clientId, l.otroNombre || l.otroEmail || 'Cliente')}>
+                <Button variant="secondary" onClick={() => verCliente(l.clientId, l.otroNombre || l.otroEmail || 'Cliente', l.id)}>
                   <span className="flex items-center gap-1">
                     <Eye size={13} /> Ver progreso
                   </span>
