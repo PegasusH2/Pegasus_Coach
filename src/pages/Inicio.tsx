@@ -62,6 +62,7 @@ function InicioPersonal({ onNavigate }: { onNavigate: (r: Route) => void }) {
         <DiaToggle value={diaTipo} onChange={setDiaTipo} />
       </div>
 
+      <div key={diaTipo} className="tab-fade">
       <div className="grid grid-cols-4 gap-4">
         <Card>
           <CardLabel>Peso actual</CardLabel>
@@ -112,6 +113,7 @@ function InicioPersonal({ onNavigate }: { onNavigate: (r: Route) => void }) {
           <CardLabel>Grasas</CardLabel>
           <div className="text-2xl font-bold text-macro-fat">{formatNumero(grasas, 0)} g</div>
         </Card>
+      </div>
       </div>
 
       <Card className="mt-4">

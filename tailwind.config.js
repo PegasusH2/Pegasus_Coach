@@ -26,6 +26,10 @@ export default {
           carbs: '#f0a53a',
           fat: '#e8b93a',
         },
+        success: {
+          DEFAULT: '#22c55e',
+          soft: 'rgba(34,197,94,0.12)',
+        },
       },
       borderRadius: {
         card: '16px',

@@ -125,56 +125,58 @@ export function Progreso({ tab, onNavigate }: { tab: ProgresoTab; onNavigate: (r
         ))}
       </div>
 
-      {tab === 'peso' && (
-        <Card>
-          <CardLabel>Evolución de peso</CardLabel>
-          <WeightChart entries={pesos} height={300} />
-        </Card>
-      )}
+      <div key={tab} className="tab-fade">
+        {tab === 'peso' && (
+          <Card>
+            <CardLabel>Evolución de peso</CardLabel>
+            <WeightChart entries={pesos} height={300} />
+          </Card>
+        )}
 
-      {tab === 'medidas' && (
-        <div className="flex flex-col gap-4">
-          {!soloLectura && targetUserId && (
-            <Card>
-              <CardLabel>Registrar perímetros corporales</CardLabel>
-              <MeasurementForm userId={targetUserId} campos={MEDIDAS} onSaved={refetchMeasurements} />
-            </Card>
-          )}
-          <MedicionesTabla mediciones={mediciones} campos={MEDIDAS} />
-        </div>
-      )}
-
-      {tab === 'pliegues' && (
-        <div className="flex flex-col gap-4">
-          {!soloLectura && targetUserId && (
-            <Card>
-              <CardLabel>Registrar pliegues cutáneos (7 sitios) y % graso</CardLabel>
-              <MeasurementForm userId={targetUserId} campos={PLIEGUES} onSaved={refetchMeasurements} />
-            </Card>
-          )}
-          <MedicionesTabla mediciones={mediciones} campos={PLIEGUES} />
-        </div>
-      )}
-
-      {tab === 'evolucion' && (
-        <Card>
-          <div className="mb-3 flex items-center justify-between">
-            <CardLabel>Evolución</CardLabel>
-            <select
-              value={metrica}
-              onChange={(e) => setMetrica(e.target.value as (typeof METRICAS)[number]['key'])}
-              className="rounded-control border border-bg-border bg-bg-panel px-3 py-1.5 text-sm text-text-primary outline-none"
-            >
-              {METRICAS.map((m) => (
-                <option key={m.key} value={m.key}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
+        {tab === 'medidas' && (
+          <div className="flex flex-col gap-4">
+            {!soloLectura && targetUserId && (
+              <Card>
+                <CardLabel>Registrar perímetros corporales</CardLabel>
+                <MeasurementForm userId={targetUserId} campos={MEDIDAS} onSaved={refetchMeasurements} />
+              </Card>
+            )}
+            <MedicionesTabla mediciones={mediciones} campos={MEDIDAS} />
           </div>
-          <SimpleLine data={serieEvolucion ?? []} dataKey={metrica} unidad="" />
-        </Card>
-      )}
+        )}
+
+        {tab === 'pliegues' && (
+          <div className="flex flex-col gap-4">
+            {!soloLectura && targetUserId && (
+              <Card>
+                <CardLabel>Registrar pliegues cutáneos (7 sitios) y % graso</CardLabel>
+                <MeasurementForm userId={targetUserId} campos={PLIEGUES} onSaved={refetchMeasurements} />
+              </Card>
+            )}
+            <MedicionesTabla mediciones={mediciones} campos={PLIEGUES} />
+          </div>
+        )}
+
+        {tab === 'evolucion' && (
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <CardLabel>Evolución</CardLabel>
+              <select
+                value={metrica}
+                onChange={(e) => setMetrica(e.target.value as (typeof METRICAS)[number]['key'])}
+                className="rounded-control border border-bg-border bg-bg-panel px-3 py-1.5 text-sm text-text-primary outline-none"
+              >
+                {METRICAS.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <SimpleLine data={serieEvolucion ?? []} dataKey={metrica} unidad="" />
+          </Card>
+        )}
+      </div>
     </div>
   )
 }

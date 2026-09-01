@@ -10,6 +10,7 @@ import {
   Settings,
   Upload,
   Users,
+  X,
 } from 'lucide-react'
 import type { Route, Section } from '@/lib/nav'
 import { rolLabel } from '@/lib/supabase/profileRepo'
@@ -23,6 +24,9 @@ interface SidebarProps {
   onExportar: () => void
   onImportarExcel: () => void
   onCerrarSesion: () => void
+  /** Cierra el drawer en móvil — el mismo Sidebar se usa como panel fijo en desktop
+   * y como drawer deslizante en móvil (ver App.tsx); el botón solo se ve en móvil. */
+  onClose?: () => void
 }
 
 const PROGRESO_TABS: { key: NonNullable<Route['progresoTab']>; label: string }[] = [
@@ -56,7 +60,7 @@ function NavItem({
   )
 }
 
-export function Sidebar({ route, onNavigate, nombrePerfil, rol, onExportar, onImportarExcel, onCerrarSesion }: SidebarProps) {
+export function Sidebar({ route, onNavigate, nombrePerfil, rol, onExportar, onImportarExcel, onCerrarSesion, onClose }: SidebarProps) {
   const progresoAbierto = route.section === 'progreso'
 
   const irA = (section: Section) => {
@@ -65,14 +69,25 @@ export function Sidebar({ route, onNavigate, nombrePerfil, rol, onExportar, onIm
   }
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col justify-between border-r border-bg-border bg-bg px-3 py-4">
+    <aside className="flex h-full w-72 shrink-0 flex-col justify-between border-r border-bg-border bg-bg px-3 py-4 md:w-60">
       <div>
-        <div className="mb-6 flex items-center gap-2 px-2">
-          <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="Pegasus" className="h-8 w-8 rounded-lg" />
-          <div>
-            <div className="text-sm font-bold leading-tight">PEGASUS</div>
-            <div className="text-[10px] font-medium tracking-widest text-text-muted">NUTRITION</div>
+        <div className="mb-6 flex items-center justify-between gap-2 px-2">
+          <div className="flex items-center gap-2">
+            <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="Pegasus" className="h-8 w-8 rounded-lg" />
+            <div>
+              <div className="text-sm font-bold leading-tight">PEGASUS</div>
+              <div className="text-[10px] font-medium tracking-widest text-text-muted">NUTRITION</div>
+            </div>
           </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              aria-label="Cerrar menú"
+              className="rounded-control p-1.5 text-text-secondary hover:bg-bg-hover hover:text-text-primary md:hidden"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         <nav className="flex flex-col gap-1">
