@@ -54,7 +54,7 @@ export function Clientes({ onNavigate }: { onNavigate: (r: Route) => void }) {
         {error && <p className="mt-2 text-sm text-pegasus-red">{error}</p>}
         <p className="mt-2 text-xs text-text-muted">
           Vale con que tenga Cuenta Pegasus (por ejemplo si ya usa Pegasus Tracker), aunque nunca haya
-          entrado a Nutrition. Debe aprobar la solicitud — desde Nutrition, o al entrar por primera vez
+          entrado a Pegasus Coach. Debe aprobar la solicitud — desde Coach, o al entrar por primera vez
           se le pedirá completar su perfil y luego podrá aceptarla en Ajustes.
         </p>
       </Card>

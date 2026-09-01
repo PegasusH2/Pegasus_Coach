@@ -109,7 +109,7 @@ function AppShell() {
           </button>
           <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="Pegasus" className="h-6 w-6 rounded-md" />
           <span className="text-sm font-bold">
-            PEGASUS <span className="font-normal text-text-muted">NUTRITION</span>
+            PEGASUS <span className="font-normal text-text-muted">COACH</span>
           </span>
         </div>
 

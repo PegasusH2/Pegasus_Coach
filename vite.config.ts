@@ -3,9 +3,9 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'node:path'
 
-// Publicado en GitHub Pages como sitio de proyecto (https://pegasush2.github.io/Pegasus_Nutrition/),
+// Publicado en GitHub Pages como sitio de proyecto (https://pegasush2.github.io/Pegasus_Coach/),
 // igual que Pegasus Tracker — todo tiene que vivir bajo ese subpath, no en la raíz.
-const base = process.env.GITHUB_PAGES ? '/Pegasus_Nutrition/' : '/'
+const base = process.env.GITHUB_PAGES ? '/Pegasus_Coach/' : '/'
 
 export default defineConfig({
   base,
@@ -15,9 +15,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon-64.png'],
       manifest: {
-        name: 'Pegasus Nutrition',
-        short_name: 'Nutrition',
-        description: 'Control de macros, peso y progreso — Pegasus Nutrition',
+        name: 'Pegasus Coach',
+        short_name: 'Coach',
+        description: 'Control de macros, peso y progreso — Pegasus Coach',
         theme_color: '#0a0a0a',
         background_color: '#0a0a0a',
         display: 'standalone',

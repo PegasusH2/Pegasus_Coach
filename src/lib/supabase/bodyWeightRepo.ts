@@ -1,5 +1,5 @@
 // Peso corporal — vive en la tabla `body_weight`, COMPARTIDA con Pegasus
-// Tracker (mismo proyecto Supabase, misma cuenta). Nutrition no tiene tabla
+// Tracker (mismo proyecto Supabase, misma cuenta). Coach no tiene tabla
 // propia de peso: lee y escribe directo aquí, así un peso registrado en
 // cualquiera de las dos apps aparece en la otra.
 //

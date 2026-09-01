@@ -26,7 +26,7 @@ export async function exportarDatosJson(userId: string): Promise<void> {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `pegasus-nutrition-export-${new Date().toISOString().slice(0, 10)}.json`
+  a.download = `pegasus-coach-export-${new Date().toISOString().slice(0, 10)}.json`
   a.click()
   URL.revokeObjectURL(url)
 }

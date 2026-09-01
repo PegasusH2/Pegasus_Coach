@@ -1,5 +1,5 @@
 // Agregaciones para el panel de control del entrenador (pantalla Inicio).
-// Combina datos propios de Nutrition con la lectura real (nunca escritura)
+// Combina datos propios de Coach con la lectura real (nunca escritura)
 // del entrenamiento del cliente en Pegasus Tracker — ver trackerReadRepo.ts.
 import { listWeightEntries } from './bodyWeightRepo'
 import { getActiveClosedDietPlan } from './closedDietRepo'
@@ -32,8 +32,8 @@ export interface ResumenEntrenador {
   clientes: ClienteResumen[]
 }
 
-/** Última fecha con datos propios de Nutrition (peso, macros o dieta cerrada) — sin inventar tracking nuevo. */
-async function getUltimaActividadNutrition(clientId: string): Promise<{ fecha: string | null; pesos: WeightEntry[] }> {
+/** Última fecha con datos propios de Coach (peso, macros o dieta cerrada) — sin inventar tracking nuevo. */
+async function getUltimaActividadCoach(clientId: string): Promise<{ fecha: string | null; pesos: WeightEntry[] }> {
   const [pesos, macro, dieta] = await Promise.all([
     listWeightEntries(clientId).catch(() => [] as WeightEntry[]),
     getActiveMacroPlan(clientId).catch(() => undefined),
@@ -47,7 +47,7 @@ async function getUltimaActividadNutrition(clientId: string): Promise<{ fecha: s
 
 async function getClienteBase(linkId: string, clientId: string, nombre: string, email: string | null): Promise<ClienteResumen> {
   const [nutrition, workout] = await Promise.all([
-    getUltimaActividadNutrition(clientId),
+    getUltimaActividadCoach(clientId),
     getUltimoWorkout(clientId).catch(() => undefined),
   ])
   let ultimaActividad: string | null = null

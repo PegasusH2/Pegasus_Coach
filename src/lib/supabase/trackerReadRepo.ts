@@ -1,7 +1,7 @@
 // Lectura del entrenamiento REAL del cliente en Pegasus Tracker — mismo
 // proyecto Supabase, tablas propiedad de Tracker (workouts/workout_exercises/
 // sets/exercises). Aquí SOLO se lee, nunca se escribe: crear/asignar
-// entrenamientos desde Nutrition es una fase posterior que requiere cambios
+// entrenamientos desde Coach es una fase posterior que requiere cambios
 // en el propio esquema de Tracker. La policy "trainer_read_client_training"
 // (ver supabase/migrations/0005_dashboard_entrenador.sql) es lo que permite
 // a un entrenador con vínculo aceptado leer estas filas.

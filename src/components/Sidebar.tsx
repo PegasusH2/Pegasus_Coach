@@ -76,7 +76,7 @@ export function Sidebar({ route, onNavigate, nombrePerfil, rol, onExportar, onIm
             <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="Pegasus" className="h-8 w-8 rounded-lg" />
             <div>
               <div className="text-sm font-bold leading-tight">PEGASUS</div>
-              <div className="text-[10px] font-medium tracking-widest text-text-muted">NUTRITION</div>
+              <div className="text-[10px] font-medium tracking-widest text-text-muted">COACH</div>
             </div>
           </div>
           {onClose && (

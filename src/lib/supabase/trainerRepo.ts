@@ -6,8 +6,8 @@ const TABLE = 'trainer_client_links'
 
 /**
  * El entrenador solicita acceso a un cliente por su email. Encuentra CUALQUIER
- * Cuenta Pegasus (Tracker o Nutrition) — no hace falta que la persona invitada
- * haya abierto Nutrition todavía. Lanza si no existe esa cuenta en absoluto.
+ * Cuenta Pegasus (Tracker o Coach) — no hace falta que la persona invitada
+ * haya abierto Coach todavía. Lanza si no existe esa cuenta en absoluto.
  */
 export async function requestAccess(trainerId: string, clientEmail: string): Promise<void> {
   const email = clientEmail.trim().toLowerCase()
@@ -39,7 +39,7 @@ async function withNombres(rows: Record<string, unknown>[], idKey: 'trainerId' |
     ...r,
     otroNombre: nombreById.get(r[idKey] as string) || null,
     // Email real del perfil si ya existe; si no (cliente invitado que aún no
-    // ha entrado a Nutrition), se cae al email con el que se le invitó.
+    // ha entrado a Coach), se cae al email con el que se le invitó.
     otroEmail:
       emailById.get(r[idKey] as string) ||
       (idKey === 'clientId' ? ((r.clientEmailAtInvite as string | null) ?? null) : null),

@@ -12,7 +12,7 @@ function AuthShell({ children }: { children: React.ReactNode }) {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
           <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="Pegasus" className="h-12 w-12 rounded-xl" />
-          <div className="text-lg font-bold">PEGASUS NUTRITION</div>
+          <div className="text-lg font-bold">PEGASUS COACH</div>
         </div>
         {children}
       </div>
@@ -131,7 +131,7 @@ export function Auth() {
 }
 
 /** Se muestra cuando ya hay una sesión válida de Supabase (p.ej. una cuenta creada desde
- * Pegasus Tracker) pero todavía no existe la fila de profiles específica de Nutrition. */
+ * Pegasus Tracker) pero todavía no existe la fila de profiles específica de Coach. */
 export function CompletarPerfil() {
   const { session, refreshProfile } = useSession()
   const [nombre, setNombre] = useState('')
@@ -157,7 +157,7 @@ export function CompletarPerfil() {
     <AuthShell>
       <div className="flex flex-col gap-3 rounded-card border border-bg-border bg-bg-card p-5">
         <p className="text-sm text-text-secondary">
-          Ya tienes Cuenta Pegasus ({session?.user.email}) pero es la primera vez que entras en Nutrition —
+          Ya tienes Cuenta Pegasus ({session?.user.email}) pero es la primera vez que entras en Pegasus Coach —
           termina de configurarla.
         </p>
         <Field label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />

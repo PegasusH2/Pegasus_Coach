@@ -1,4 +1,4 @@
-// Tipos de dominio de Pegasus Nutrition. fecha* siempre en formato ISO 'YYYY-MM-DD'.
+// Tipos de dominio de Pegasus Coach. fecha* siempre en formato ISO 'YYYY-MM-DD'.
 // id* son uuid de Postgres (Supabase) — siempre string.
 
 export type Rol = 'personal' | 'entrenador'

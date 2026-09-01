@@ -230,7 +230,7 @@ function ImportarExcelCard({ onImported }: { onImported: () => void }) {
     }
   }
 
-  // Paso 1: crea el mesociclo y los planes de macros (propios de Nutrition,
+  // Paso 1: crea el mesociclo y los planes de macros (propios de Coach,
   // sin conflicto posible), y prepara la comparación de pesos contra
   // body_weight (compartida con Tracker) — si hay fechas con valores
   // distintos en los dos sitios, se pide al usuario antes de tocar nada.
