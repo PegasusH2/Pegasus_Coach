@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Field } from './Field'
 import { Button } from './Button'
 import { hoyIso } from '@/lib/format'
-import { createMeasurement } from '@/lib/supabase/measurementRepo'
+import { createMeasurement, updateMeasurement } from '@/lib/supabase/measurementRepo'
 import type { Measurement, MeasurementInput } from '@/types'
 
 export interface CampoMedicion {
@@ -11,18 +11,32 @@ export interface CampoMedicion {
   suffix?: string
 }
 
-/** Formulario genérico de alta de una medición parcial (pliegues o perímetros); ningún campo es obligatorio. */
+/** Formulario genérico de alta/edición de una medición parcial (pliegues o
+ * perímetros); ningún campo es obligatorio. Con `editing` pasa a modo edición:
+ * precarga sus valores y guarda con `updateMeasurement` en vez de crear una fila. */
 export function MeasurementForm({
   userId,
   campos,
   onSaved,
+  editing,
+  onCancel,
 }: {
   userId: string
   campos: CampoMedicion[]
   onSaved: () => void
+  editing?: Measurement
+  onCancel?: () => void
 }) {
-  const [fecha, setFecha] = useState(hoyIso())
-  const [valores, setValores] = useState<Record<string, string>>({})
+  const [fecha, setFecha] = useState(editing?.fecha ?? hoyIso())
+  const [valores, setValores] = useState<Record<string, string>>(() => {
+    if (!editing) return {}
+    const init: Record<string, string> = {}
+    for (const c of campos) {
+      const v = (editing as unknown as Record<string, number | null>)[c.key as string]
+      if (v !== null && v !== undefined) init[c.key as string] = String(v)
+    }
+    return init
+  })
   const [guardando, setGuardando] = useState(false)
 
   async function guardar() {
@@ -45,7 +59,7 @@ export function MeasurementForm({
         muslo: null,
         pecho: null,
         cuello: null,
-        notas: null,
+        notas: editing?.notas ?? null,
       }
       for (const c of campos) {
         const raw = valores[c.key as string]
@@ -53,8 +67,12 @@ export function MeasurementForm({
           ;(data as Record<string, unknown>)[c.key as string] = Number(raw)
         }
       }
-      await createMeasurement(data)
-      setValores({})
+      if (editing) {
+        await updateMeasurement(editing.id, data)
+      } else {
+        await createMeasurement(data)
+        setValores({})
+      }
       onSaved()
     } finally {
       setGuardando(false)
@@ -76,9 +94,14 @@ export function MeasurementForm({
           />
         ))}
       </div>
-      <div className="mt-3 flex justify-end">
+      <div className="mt-3 flex justify-end gap-2">
+        {editing && onCancel && (
+          <Button variant="secondary" onClick={onCancel} disabled={guardando}>
+            Cancelar
+          </Button>
+        )}
         <Button onClick={guardar} disabled={guardando}>
-          Guardar medición
+          {editing ? 'Guardar cambios' : 'Guardar medición'}
         </Button>
       </div>
     </div>

@@ -25,14 +25,21 @@ interface SessionContextValue {
   setClienteActivo: (c: ClienteActivo | null) => void
   /** A qué usuario apuntan las pantallas ahora mismo: el propio, o el cliente seleccionado por un entrenador. */
   targetUserId: string | null
-  soloLectura: boolean
   /** Vínculo aceptado donde YO soy el cliente (si existe) — mi propio entrenador, no el de un cliente que esté viendo. */
   miVinculoEntrenador: TrainerClientLink | null
   /** Atajo de `miVinculoEntrenador !== null`. */
   tengoEntrenadorAceptado: boolean
-  /** Igual que `soloLectura` pero para Macros/Dieta cerrada: el entrenador SÍ puede
-   * editar el contenido nutricional del cliente que esté viendo (a diferencia de
-   * Peso/Progreso), y el propio cliente pierde la edición si tiene entrenador. */
+  /** Exclusivo de Macros/Dieta cerrada: el entrenador SÍ puede editar el contenido
+   * nutricional del cliente que esté viendo, y el propio cliente pierde su propia
+   * edición mientras tenga entrenador (modelo exclusivo, no aditivo — decisión ya
+   * tomada e implementada antes del "control total" de abajo).
+   *
+   * Peso/Progreso/Entrenamiento NO tienen un flag equivalente: desde
+   * supabase/migrations/0007_control_total_entrenador.sql el modelo ahí es
+   * ADITIVO — el cliente conserva siempre su propia escritura (en Tracker) y el
+   * entrenador gana escritura además, nunca se le retira nada al cliente. Por eso
+   * `Peso.tsx`/`Progreso.tsx`/`FichaCliente.tsx` ya no leen ningún flag de
+   * "solo lectura": siempre son editables, sea cual sea quién los esté viendo. */
   soloLecturaNutricion: boolean
   /** true tras entrar desde el enlace de "recuperar contraseña" del email — hay
    * sesión, pero antes de nada hay que dejar poner una contraseña nueva. */
@@ -98,7 +105,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         clienteActivo,
         setClienteActivo,
         targetUserId,
-        soloLectura: clienteActivo !== null,
         miVinculoEntrenador,
         tengoEntrenadorAceptado,
         soloLecturaNutricion: clienteActivo !== null ? false : tengoEntrenadorAceptado,

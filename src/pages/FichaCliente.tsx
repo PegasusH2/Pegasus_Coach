@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { ArrowLeft, Check, Dumbbell } from 'lucide-react'
-import { useReviewsCliente, usePaymentsCliente, useTargetProfile, useWorkoutsCliente } from '@/hooks/useData'
+import { ArrowLeft, Check } from 'lucide-react'
+import { useReviewsCliente, usePaymentsCliente, useTargetProfile } from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
 import { createReview, updateReviewEstado } from '@/lib/supabase/reviewRepo'
 import { createPayment } from '@/lib/supabase/paymentRepo'
@@ -12,6 +12,7 @@ import { TipoNutricionCard } from '@/components/ui/TipoNutricionCard'
 import { Macros } from './Macros'
 import { Peso } from './Peso'
 import { Progreso } from './Progreso'
+import { EntrenamientoCliente } from './EntrenamientoCliente'
 import { formatFechaCorta, formatFechaRelativa, formatNumero, hoyIso } from '@/lib/format'
 import { rolLabel } from '@/lib/supabase/profileRepo'
 import type { FichaTab, ProgresoTab, Route } from '@/lib/nav'
@@ -86,7 +87,7 @@ export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (
       )}
       {tab === 'peso' && <Peso />}
       {tab === 'progreso' && <Progreso tab={progresoTab} onNavigate={(r) => setProgresoTab(r.progresoTab ?? 'evolucion')} />}
-      {tab === 'entrenamiento' && <EntrenamientoTab />}
+      {tab === 'entrenamiento' && <EntrenamientoCliente />}
       {tab === 'revisiones' && <RevisionesTab />}
       {tab === 'pagos' && <PagosTab />}
     </div>
@@ -118,50 +119,6 @@ function DatosTab() {
         </div>
       </div>
     </Card>
-  )
-}
-
-function EntrenamientoTab() {
-  const { data: workouts, loading } = useWorkoutsCliente()
-
-  if (loading) return <Card>Cargando…</Card>
-  if (!workouts || workouts.length === 0) {
-    return (
-      <Card>
-        <CardLabel icon={<Dumbbell size={13} />}>Entrenamiento</CardLabel>
-        <p className="text-sm text-text-muted">Este cliente todavía no tiene entrenamientos registrados en Pegasus Tracker.</p>
-      </Card>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      {workouts.map((w) => (
-        <Card key={w.id}>
-          <div className="mb-3 flex items-center justify-between">
-            <CardLabel icon={<Dumbbell size={13} />}>{w.name || 'Entrenamiento'}</CardLabel>
-            <span className="text-xs text-text-muted">{formatFechaCorta(w.date)}</span>
-          </div>
-          <div className="flex flex-col gap-3">
-            {w.ejercicios.map((ej) => (
-              <div key={ej.id}>
-                <div className="mb-1 text-sm font-medium">{ej.exerciseNombre || 'Ejercicio'}</div>
-                <div className="flex flex-wrap gap-2">
-                  {ej.sets.map((s) => (
-                    <span
-                      key={s.id}
-                      className={`rounded-control border px-2 py-1 text-xs ${s.done ? 'border-emerald-400/30 text-emerald-400' : 'border-bg-border text-text-muted'}`}
-                    >
-                      {formatNumero(s.weight, 1)} kg × {s.reps ?? '—'} · RIR {s.rir ?? '—'}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ))}
-    </div>
   )
 }
 

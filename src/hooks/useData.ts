@@ -10,6 +10,8 @@ import { getResumenEntrenador } from '@/lib/supabase/dashboardRepo'
 import { listPaymentsByLink } from '@/lib/supabase/paymentRepo'
 import { listReviewsByClient } from '@/lib/supabase/reviewRepo'
 import { listWorkoutsConSets } from '@/lib/supabase/trackerReadRepo'
+import { listExercises, listTemplateExercises, listTemplates } from '@/lib/supabase/trackerWriteRepo'
+import { listMeasurementTypes, listSkinfoldSites } from '@/lib/supabase/trackerMeasurementRepo'
 
 /** Hook genérico: llama a fetcher() al montar/cuando cambian deps y expone refetch(). */
 export function useAsyncData<T>(fetcher: () => Promise<T>, deps: unknown[] = []) {
@@ -122,4 +124,31 @@ export function usePaymentsCliente(linkId: string | null) {
 export function useWorkoutsCliente() {
   const { targetUserId } = useSession()
   return useAsyncData(() => (targetUserId ? listWorkoutsConSets(targetUserId) : Promise.resolve([])), [targetUserId])
+}
+
+// ---------- Control total del entrenador: ejercicios/rutinas y medidas genéricas de
+// Tracker (ver supabase/migrations/0007_control_total_entrenador.sql). ----------
+
+export function useExercisesCliente() {
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listExercises(targetUserId) : Promise.resolve([])), [targetUserId])
+}
+
+export function useTemplatesCliente() {
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listTemplates(targetUserId) : Promise.resolve([])), [targetUserId])
+}
+
+export function useTemplateExercises(templateId: string | null) {
+  return useAsyncData(() => (templateId ? listTemplateExercises(templateId) : Promise.resolve([])), [templateId])
+}
+
+export function useMeasurementTypesCliente() {
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listMeasurementTypes(targetUserId) : Promise.resolve([])), [targetUserId])
+}
+
+export function useSkinfoldSitesCliente() {
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listSkinfoldSites(targetUserId) : Promise.resolve([])), [targetUserId])
 }

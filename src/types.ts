@@ -227,6 +227,108 @@ export interface TrackerWorkoutExercise {
   sets: TrackerSet[]
 }
 
+// ---------- Escritura del entrenador sobre entrenamiento real (control total, ver
+// supabase/migrations/0007_control_total_entrenador.sql) ----------
+// Mismas tablas de arriba (workouts/workout_exercises/sets), ya no de solo lectura:
+// el entrenador vinculado puede crear/editar/borrar. Modelo ADITIVO — el cliente
+// conserva su propia escritura desde Tracker sin cambios.
+
+export interface TrackerWorkoutInput {
+  userId: string
+  name: string | null
+  fecha: string
+  notas: string
+  completado: boolean
+  templateId: string | null
+}
+
+export interface TrackerSetInput {
+  workoutExerciseId: string
+  setNumber: number
+  weight: number | null
+  reps: number | null
+  rir: number | null
+  done: boolean
+  notas: string
+}
+
+export interface TrackerExercise {
+  id: string
+  userId: string
+  name: string
+  muscleGroup: string
+  notes: string
+  archived: boolean
+}
+
+export type TrackerExerciseInput = Omit<TrackerExercise, 'id'>
+
+export interface TrackerTemplate {
+  id: string
+  userId: string
+  name: string
+  description: string
+  /** uuid del entrenador que la creó — null si es una rutina propia del cliente. */
+  assignedBy: string | null
+}
+
+export type TrackerTemplateInput = Omit<TrackerTemplate, 'id'>
+
+export interface TrackerTemplateExercise {
+  id: string
+  templateId: string
+  exerciseId: string
+  exerciseNombre?: string | null
+  sortOrder: number
+  targetSets: number
+  targetRepsMin: number | null
+  targetRepsMax: number | null
+}
+
+export type TrackerTemplateExerciseInput = Omit<TrackerTemplateExercise, 'id' | 'exerciseNombre'>
+
+// ---------- Medidas genéricas de Tracker (measurement_types/skinfold_*) ----------
+// Sistema aparte de `Measurement`/nutrition_measurement (arriba) — el propio del
+// cliente en Tracker, con tipos de medida definidos por el usuario. Sin código previo
+// en Coach; nuevo por completo con el control total del entrenador.
+
+export interface TrackerMeasurementType {
+  id: string
+  userId: string
+  name: string
+  unit: string
+  enabled: boolean
+}
+
+export type TrackerMeasurementTypeInput = Omit<TrackerMeasurementType, 'id'>
+
+export interface TrackerGenericMeasurement {
+  id: string
+  typeId: string
+  fecha: string
+  value: number | null
+  notas: string
+}
+
+export type TrackerGenericMeasurementInput = Omit<TrackerGenericMeasurement, 'id'>
+
+export interface TrackerSkinfoldSite {
+  id: string
+  userId: string
+  name: string
+}
+
+export type TrackerSkinfoldSiteInput = Omit<TrackerSkinfoldSite, 'id'>
+
+export interface TrackerSkinfoldEntry {
+  id: string
+  siteId: string
+  fecha: string
+  valueMm: number
+}
+
+export type TrackerSkinfoldEntryInput = Omit<TrackerSkinfoldEntry, 'id'>
+
 // ---------- Entrenador / cliente ----------
 
 export type LinkStatus = 'pending' | 'accepted' | 'revoked'

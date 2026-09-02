@@ -1,15 +1,20 @@
 import { useMemo, useState } from 'react'
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { useMacroPlans, useMeasurements, useWeightEntries } from '@/hooks/useData'
+import { useAsyncData, useMacroPlans, useMeasurements, useMeasurementTypesCliente, useWeightEntries } from '@/hooks/useData'
 import { calcularMacroPlan } from '@/lib/calculos'
 import { useSession } from '@/lib/SessionContext'
+import { deleteMeasurement } from '@/lib/supabase/measurementRepo'
+import * as trackerMeasurementRepo from '@/lib/supabase/trackerMeasurementRepo'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { WeightChart } from '@/components/WeightChart'
 import { MeasurementForm, type CampoMedicion } from '@/components/ui/MeasurementForm'
-import { formatFechaCorta, formatNumero } from '@/lib/format'
+import { Field } from '@/components/ui/Field'
+import { Button } from '@/components/ui/Button'
+import { formatFechaCorta, formatNumero, hoyIso } from '@/lib/format'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import type { ProgresoTab, Route } from '@/lib/nav'
-import type { Measurement } from '@/types'
+import type { Measurement, TrackerMeasurementType } from '@/types'
 
 const PLIEGUES: CampoMedicion[] = [
   { key: 'pectoral', label: 'Pectoral', suffix: 'mm' },
@@ -75,11 +80,18 @@ function SimpleLine({
 }
 
 export function Progreso({ tab, onNavigate }: { tab: ProgresoTab; onNavigate: (r: Route) => void }) {
-  const { targetUserId, soloLectura } = useSession()
+  const { targetUserId } = useSession()
   const { data: weightEntries } = useWeightEntries()
   const { data: macroPlans } = useMacroPlans()
   const { data: measurements, refetch: refetchMeasurements } = useMeasurements()
   const [metrica, setMetrica] = useState<(typeof METRICAS)[number]['key']>('peso')
+  const [editando, setEditando] = useState<Measurement | null>(null)
+
+  async function borrarMedicion(id: string) {
+    await deleteMeasurement(id)
+    if (editando?.id === id) setEditando(null)
+    await refetchMeasurements()
+  }
 
   const pesos = weightEntries ?? []
   const planes = (macroPlans ?? []).map(calcularMacroPlan)
@@ -135,25 +147,46 @@ export function Progreso({ tab, onNavigate }: { tab: ProgresoTab; onNavigate: (r
 
         {tab === 'medidas' && (
           <div className="flex flex-col gap-4">
-            {!soloLectura && targetUserId && (
+            {targetUserId && (
               <Card>
-                <CardLabel>Registrar perímetros corporales</CardLabel>
-                <MeasurementForm userId={targetUserId} campos={MEDIDAS} onSaved={refetchMeasurements} />
+                <CardLabel>{editando ? 'Editar medición' : 'Registrar perímetros corporales'}</CardLabel>
+                <MeasurementForm
+                  key={editando?.id ?? 'nuevo'}
+                  userId={targetUserId}
+                  campos={MEDIDAS}
+                  editing={editando ?? undefined}
+                  onCancel={() => setEditando(null)}
+                  onSaved={() => {
+                    setEditando(null)
+                    refetchMeasurements()
+                  }}
+                />
               </Card>
             )}
-            <MedicionesTabla mediciones={mediciones} campos={MEDIDAS} />
+            <MedicionesTabla mediciones={mediciones} campos={MEDIDAS} onEditar={setEditando} onBorrar={borrarMedicion} />
+            <MedidasTrackerSection />
           </div>
         )}
 
         {tab === 'pliegues' && (
           <div className="flex flex-col gap-4">
-            {!soloLectura && targetUserId && (
+            {targetUserId && (
               <Card>
-                <CardLabel>Registrar pliegues cutáneos (7 sitios) y % graso</CardLabel>
-                <MeasurementForm userId={targetUserId} campos={PLIEGUES} onSaved={refetchMeasurements} />
+                <CardLabel>{editando ? 'Editar medición' : 'Registrar pliegues cutáneos (7 sitios) y % graso'}</CardLabel>
+                <MeasurementForm
+                  key={editando?.id ?? 'nuevo'}
+                  userId={targetUserId}
+                  campos={PLIEGUES}
+                  editing={editando ?? undefined}
+                  onCancel={() => setEditando(null)}
+                  onSaved={() => {
+                    setEditando(null)
+                    refetchMeasurements()
+                  }}
+                />
               </Card>
             )}
-            <MedicionesTabla mediciones={mediciones} campos={PLIEGUES} />
+            <MedicionesTabla mediciones={mediciones} campos={PLIEGUES} onEditar={setEditando} onBorrar={borrarMedicion} />
           </div>
         )}
 
@@ -181,7 +214,17 @@ export function Progreso({ tab, onNavigate }: { tab: ProgresoTab; onNavigate: (r
   )
 }
 
-function MedicionesTabla({ mediciones, campos }: { mediciones: Measurement[]; campos: CampoMedicion[] }) {
+function MedicionesTabla({
+  mediciones,
+  campos,
+  onEditar,
+  onBorrar,
+}: {
+  mediciones: Measurement[]
+  campos: CampoMedicion[]
+  onEditar: (m: Measurement) => void
+  onBorrar: (id: string) => void
+}) {
   const filas = [...(mediciones ?? [])].reverse()
   return (
     <Card>
@@ -196,6 +239,7 @@ function MedicionesTabla({ mediciones, campos }: { mediciones: Measurement[]; ca
                   {c.label}
                 </th>
               ))}
+              <th className="py-1 pr-3" />
             </tr>
           </thead>
           <tbody>
@@ -207,11 +251,21 @@ function MedicionesTabla({ mediciones, campos }: { mediciones: Measurement[]; ca
                     {formatNumero((m as unknown as Record<string, number | null>)[c.key as string], 1)}
                   </td>
                 ))}
+                <td className="py-2 pr-1 text-right">
+                  <div className="flex justify-end gap-3">
+                    <button onClick={() => onEditar(m)} className="text-text-muted hover:text-pegasus-red">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => onBorrar(m.id)} className="text-text-muted hover:text-pegasus-red">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
             {filas.length === 0 && (
               <tr>
-                <td colSpan={campos.length + 1} className="py-6 text-center text-text-muted">
+                <td colSpan={campos.length + 2} className="py-6 text-center text-text-muted">
                   Todavía no hay mediciones.
                 </td>
               </tr>
@@ -220,5 +274,104 @@ function MedicionesTabla({ mediciones, campos }: { mediciones: Measurement[]; ca
         </table>
       </div>
     </Card>
+  )
+}
+
+/** Sistema de medidas GENÉRICO del cliente en Pegasus Tracker (measurement_types/
+ * measurements) — aparte del de arriba, propio de Nutrición (nutrition_measurement).
+ * No se unifican (ver 03_SUPABASE_CONTEXT.md §6); se muestran ambos con etiquetas
+ * claras. Nuevo con el control total del entrenador — antes sin código en Coach. */
+function MedidasTrackerSection() {
+  const { targetUserId } = useSession()
+  const { data: tipos, refetch } = useMeasurementTypesCliente()
+  const [nuevoNombre, setNuevoNombre] = useState('')
+  const [nuevaUnidad, setNuevaUnidad] = useState('cm')
+  const [guardando, setGuardando] = useState(false)
+
+  async function crearTipo() {
+    if (!targetUserId || !nuevoNombre.trim()) return
+    setGuardando(true)
+    try {
+      await trackerMeasurementRepo.createMeasurementType(targetUserId, { userId: targetUserId, name: nuevoNombre, unit: nuevaUnidad, enabled: true })
+      setNuevoNombre('')
+      await refetch()
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardLabel>Medidas de Tracker (tipos propios del cliente)</CardLabel>
+      <p className="mb-3 text-xs text-text-muted">
+        Sistema aparte de las medidas de Nutrición de arriba — son los tipos de medida que el propio cliente define en Pegasus Tracker.
+      </p>
+      <div className="flex flex-col gap-2">
+        {(tipos ?? []).map((t) => (
+          <TipoMedidaTrackerRow key={t.id} tipo={t} onChange={refetch} />
+        ))}
+        {(tipos ?? []).length === 0 && <p className="text-sm text-text-muted">Este cliente todavía no tiene ningún tipo de medida en Tracker.</p>}
+      </div>
+      <div className="mt-3 flex items-end gap-2">
+        <Field label="Nueva medida" value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)} placeholder="Ej. Cintura" />
+        <Field label="Unidad" value={nuevaUnidad} onChange={(e) => setNuevaUnidad(e.target.value)} placeholder="cm" className="w-20" />
+        <Button onClick={crearTipo} disabled={guardando || !nuevoNombre.trim()}>
+          <span className="flex items-center gap-1.5">
+            <Plus size={14} /> Añadir tipo
+          </span>
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
+function TipoMedidaTrackerRow({ tipo, onChange }: { tipo: TrackerMeasurementType; onChange: () => void }) {
+  const { data: valores, refetch } = useAsyncData(() => trackerMeasurementRepo.listMeasurementValues(tipo.id), [tipo.id])
+  const [fecha, setFecha] = useState(hoyIso())
+  const [valor, setValor] = useState('')
+  const [abierto, setAbierto] = useState(false)
+
+  async function anadir() {
+    const num = Number(valor)
+    if (!Number.isFinite(num)) return
+    await trackerMeasurementRepo.addMeasurementValue({ typeId: tipo.id, fecha, value: num, notas: '' })
+    setValor('')
+    await refetch()
+  }
+
+  async function borrarTipo() {
+    await trackerMeasurementRepo.deleteMeasurementType(tipo.id)
+    onChange()
+  }
+
+  const ultimo = (valores ?? [])[valores && valores.length > 0 ? valores.length - 1 : 0]
+
+  return (
+    <div className="rounded-control border border-bg-border bg-bg-panel/60 p-2.5 text-sm">
+      <div className="flex items-center justify-between">
+        <button onClick={() => setAbierto((v) => !v)} className="font-medium text-text-primary hover:text-pegasus-red">
+          {tipo.name} <span className="text-xs text-text-muted">({tipo.unit})</span>
+        </button>
+        <div className="flex items-center gap-3 text-xs text-text-muted">
+          {ultimo && (
+            <span>
+              Último: {formatNumero(ultimo.value, 1)} {tipo.unit} · {formatFechaCorta(ultimo.fecha)}
+            </span>
+          )}
+          <button onClick={borrarTipo} className="text-text-muted hover:text-pegasus-red" title="Eliminar tipo de medida">
+            <Trash2 size={13} />
+          </button>
+        </div>
+      </div>
+      {abierto && (
+        <div className="mt-2 flex items-end gap-2 border-t border-bg-border pt-2">
+          <Field label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          <Field label={`Valor (${tipo.unit})`} type="number" value={valor} onChange={(e) => setValor(e.target.value)} />
+          <Button onClick={anadir} disabled={!valor}>
+            Registrar
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }
