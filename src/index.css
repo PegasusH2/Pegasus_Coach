@@ -49,3 +49,42 @@ body {
     animation: none;
   }
 }
+
+/* Micro-interacciones de la pantalla de Login (src/pages/Auth.tsx): entrada en
+   fade+slide de los bloques del hero/card, y flotación muy sutil del panel de
+   "product showcase". Mismo patrón que .tab-fade — respeta prefers-reduced-motion. */
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-rise {
+  animation: auth-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes auth-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.auth-float {
+  animation: auth-float 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-rise,
+  .auth-float {
+    animation: none;
+  }
+}

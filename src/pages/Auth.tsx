@@ -23,6 +23,11 @@ import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
 import { RolPicker } from '@/components/ui/RolPicker'
 
+/** Textura de grano muy sutil, generada inline (SVG feTurbulence), sin ningún asset
+ * descargado — solo unos cientos de bytes de data URI. */
+const GRAIN_BG =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
+
 /** Shell simple, usado por las pantallas auxiliares (CompletarPerfil, ActualizarPassword) —
  * sin tocar, fuera del alcance del rediseño de la pantalla de Login. */
 function AuthShell({ children }: { children: React.ReactNode }) {
@@ -40,8 +45,7 @@ function AuthShell({ children }: { children: React.ReactNode }) {
 }
 
 /** Input de la pantalla de Login, con icono a la izquierda y slot opcional a la derecha
- * (usado para el botón de mostrar/ocultar contraseña). Mismo lenguaje visual que el
- * `Field` compartido (mismo radius/borde/foco), pero local a esta pantalla — no se ha
+ * (usado para el botón de mostrar/ocultar contraseña). Local a esta pantalla — no se ha
  * tocado `components/ui/Field.tsx`, que sigue usándose tal cual en el resto de la app. */
 function AuthField({
   label,
@@ -57,7 +61,7 @@ function AuthField({
   return (
     <label className="flex flex-col gap-1.5">
       <span className="text-xs font-medium text-text-secondary">{label}</span>
-      <div className="flex items-center gap-2.5 rounded-control border border-bg-border bg-bg-panel px-3.5 py-2.5 transition-colors focus-within:border-pegasus-red focus-within:ring-2 focus-within:ring-pegasus-red/20">
+      <div className="flex items-center gap-2.5 rounded-control border border-bg-border bg-bg-panel px-3.5 py-3 transition-colors focus-within:border-pegasus-red focus-within:ring-2 focus-within:ring-pegasus-red/20">
         <Icon size={17} className="shrink-0 text-text-muted" aria-hidden="true" />
         <input
           className={`w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted ${className}`}
@@ -71,75 +75,108 @@ function AuthField({
 
 function Benefit({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-pegasus-red/25 bg-pegasus-redSoft text-pegasus-red">
-        <Icon size={17} aria-hidden="true" />
+    <div className="group flex items-center gap-3.5 transition-transform duration-200 hover:translate-x-0.5">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-pegasus-red/25 bg-pegasus-redSoft text-pegasus-red transition-colors duration-200 group-hover:border-pegasus-red/50 group-hover:bg-pegasus-red/20">
+        <Icon size={18} aria-hidden="true" />
       </div>
-      <span className="text-sm text-text-secondary">{children}</span>
+      <span className="text-[15px] font-medium text-text-secondary transition-colors duration-200 group-hover:text-text-primary">
+        {children}
+      </span>
     </div>
   )
 }
 
-/** Panel de marca — solo desktop/tablet ancho. Sin fotografía (no hay recurso gráfico
- * apropiado en el proyecto): la pieza inferior es un fondo generado con gradientes,
- * el propio icono de Pegasus a gran tamaño como marca de agua, y un patrón de puntos. */
+/** "Product showcase" — sustituye al bloque decorativo vacío de la versión anterior.
+ * Mini composición tipo panel de entrenador (tarjetas de estadísticas + gráfico de
+ * barras), abstracta e ilustrativa, no datos reales. Glassmorphism muy ligero,
+ * acento rojo, profundidad — sin fotografía ni librerías nuevas. */
+function ProductShowcase() {
+  return (
+    <div className="auth-float relative h-44 overflow-hidden rounded-2xl border border-bg-border bg-bg-panel/70 shadow-2xl shadow-black/40 backdrop-blur-sm">
+      <div className="pointer-events-none absolute -right-10 -top-12 h-40 w-40 rounded-full bg-pegasus-red/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-12 -left-10 h-40 w-40 rounded-full bg-pegasus-red/10 blur-3xl" />
+
+      <div className="relative flex items-center gap-1.5 border-b border-bg-border/80 px-4 py-2.5">
+        <span className="h-2 w-2 rounded-full bg-white/10" />
+        <span className="h-2 w-2 rounded-full bg-white/10" />
+        <span className="h-2 w-2 rounded-full bg-pegasus-red/60" />
+        <span className="ml-2 text-[10px] font-medium uppercase tracking-wider text-text-muted">Panel del entrenador</span>
+      </div>
+
+      <div className="relative grid h-[calc(100%-37px)] grid-cols-5 gap-3 p-4 xl:gap-4 xl:p-5">
+        <div className="col-span-2 flex flex-col gap-2.5">
+          <div className="flex flex-1 flex-col justify-center rounded-xl border border-bg-border bg-bg-card/80 px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wide text-text-muted">Clientes activos</span>
+              <Users size={12} className="text-pegasus-red" aria-hidden="true" />
+            </div>
+            <div className="mt-1 text-xl font-bold text-text-primary">32</div>
+          </div>
+          <div className="flex flex-1 flex-col justify-center rounded-xl border border-bg-border bg-bg-card/80 px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase tracking-wide text-text-muted">Adherencia</span>
+              <TrendingUp size={12} className="text-pegasus-red" aria-hidden="true" />
+            </div>
+            <div className="mt-1 text-xl font-bold text-text-primary">92%</div>
+          </div>
+        </div>
+
+        <div className="col-span-3 flex flex-col justify-between rounded-xl border border-bg-border bg-bg-card/80 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-wide text-text-muted">Progreso semanal</span>
+            <span className="text-[10px] font-semibold text-pegasus-red">+18%</span>
+          </div>
+          <div className="flex h-14 items-end gap-1.5">
+            {[38, 52, 46, 68, 60, 82, 100].map((h, i) => (
+              <div
+                key={i}
+                className="flex-1 rounded-t-sm bg-gradient-to-t from-pegasus-red/25 to-pegasus-red"
+                style={{ height: `${h}%`, opacity: i === 6 ? 1 : 0.55 }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Panel de marca — zona protagonista, solo desktop/tablet ancho (>= lg). */
 function BrandPanel() {
   return (
-    <div className="relative hidden overflow-hidden border-b border-bg-border bg-bg px-12 py-14 lg:flex lg:flex-col lg:justify-between lg:border-b-0 lg:border-r xl:px-16">
-      {/* halos de luz roja, muy sutiles */}
-      <div className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-pegasus-red/10 blur-3xl" />
-      <div className="pointer-events-none absolute bottom-0 right-0 h-[28rem] w-[28rem] translate-x-1/3 translate-y-1/4 rounded-full bg-pegasus-red/10 blur-3xl" />
-
-      <div className="relative z-10 flex flex-col gap-10">
-        <div className="flex items-center gap-2.5">
-          <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="Pegasus" className="h-9 w-9 rounded-lg" />
-          <span className="text-lg font-extrabold tracking-tight">
-            <span className="text-text-primary">PEGASUS</span> <span className="text-pegasus-red">COACH</span>
-          </span>
-        </div>
-
-        <div>
-          <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight text-text-primary xl:text-[2.75rem]">
-            Planifica.
-            <br />
-            Gestiona.
-            <br />
-            <span className="text-pegasus-red">Transforma.</span>
-          </h1>
-          <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-text-secondary">
-            La plataforma para entrenadores que quieren gestionar a sus clientes, planificar su nutrición y hacer
-            seguimiento de su progreso desde un solo lugar.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <Benefit icon={Users}>Gestiona todos tus clientes</Benefit>
-          <Benefit icon={ClipboardList}>Planifica su nutrición y sigue su entrenamiento</Benefit>
-          <Benefit icon={TrendingUp}>Analiza el progreso real</Benefit>
-        </div>
+    <div className="relative hidden overflow-hidden border-b border-bg-border px-10 py-8 lg:flex lg:h-full lg:flex-col lg:justify-center lg:gap-5 lg:border-b-0 lg:border-r xl:px-16">
+      <div className="auth-rise flex items-center gap-2.5" style={{ animationDelay: '0ms' }}>
+        <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="Pegasus" className="h-9 w-9 rounded-lg" />
+        <span className="text-lg font-extrabold tracking-tight">
+          <span className="text-text-primary">PEGASUS</span> <span className="text-pegasus-red">COACH</span>
+        </span>
       </div>
 
-      {/* pieza gráfica inferior — abstracta, sin fotografía */}
-      <div className="relative z-10 mt-14 h-44 overflow-hidden rounded-card border border-bg-border bg-bg-panel/60">
-        <div
-          className="absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)',
-            backgroundSize: '16px 16px',
-            color: '#f5f5f5',
-          }}
-        />
-        <div className="pointer-events-none absolute -bottom-10 -right-10 h-56 w-56 rounded-full bg-pegasus-red/20 blur-3xl" />
-        <img
-          src={`${import.meta.env.BASE_URL}icons/icon-512.png`}
-          alt=""
-          aria-hidden="true"
-          className="absolute -bottom-10 -right-8 h-56 w-56 rotate-[-8deg] opacity-[0.09] blur-[1px]"
-        />
-        <div className="absolute inset-x-0 bottom-0 h-full bg-gradient-to-t from-bg via-transparent to-transparent" />
+      <div className="auth-rise" style={{ animationDelay: '60ms' }}>
+        <h1 className="text-[2.35rem] font-black leading-[1.05] tracking-tight text-text-primary">
+          Planifica.
+          <br />
+          Gestiona.
+          <br />
+          <span className="text-pegasus-red drop-shadow-[0_0_32px_rgba(232,56,61,0.35)]">Transforma.</span>
+        </h1>
+        <p className="mt-4 max-w-md text-[15px] leading-relaxed text-text-secondary">
+          La plataforma para entrenadores que quieren gestionar a sus clientes, planificar su nutrición y hacer
+          seguimiento de su progreso desde un solo lugar.
+        </p>
       </div>
 
-      <div className="relative z-10 mt-8 flex items-center gap-5 text-xs text-text-muted">
+      <div className="auth-rise flex flex-col gap-3.5" style={{ animationDelay: '120ms' }}>
+        <Benefit icon={Users}>Gestiona todos tus clientes</Benefit>
+        <Benefit icon={ClipboardList}>Planifica su nutrición y sigue su entrenamiento</Benefit>
+        <Benefit icon={TrendingUp}>Analiza el progreso real</Benefit>
+      </div>
+
+      <div className="auth-rise" style={{ animationDelay: '180ms' }}>
+        <ProductShowcase />
+      </div>
+
+      <div className="auth-rise flex items-center gap-5 text-xs text-text-muted" style={{ animationDelay: '220ms' }}>
         <span className="flex items-center gap-1.5">
           <ShieldCheck size={14} className="text-pegasus-red" aria-hidden="true" />
           Seguro y privado
@@ -166,10 +203,10 @@ function MobileBrandHeader() {
 
 function LoginCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative w-full max-w-[420px]">
-      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[28px] bg-pegasus-red/[0.06] blur-2xl" />
-      <div className="relative overflow-hidden rounded-card border border-bg-border bg-bg-card p-7 shadow-xl shadow-black/30 sm:p-9">
-        <div className="absolute inset-x-9 top-0 h-px bg-gradient-to-r from-transparent via-pegasus-red/40 to-transparent" />
+    <div className="auth-rise relative w-full max-w-[400px]" style={{ animationDelay: '80ms' }}>
+      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[28px] bg-pegasus-red/[0.07] blur-2xl" />
+      <div className="relative overflow-hidden rounded-card border border-bg-border bg-bg-card p-7 shadow-2xl shadow-black/40 sm:p-8">
+        <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-pegasus-red/40 to-transparent" />
         {children}
       </div>
     </div>
@@ -245,8 +282,17 @@ export function Auth() {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-bg lg:grid lg:grid-cols-[1.05fr_1fr]">
+    <div className="relative flex min-h-screen w-full flex-col bg-bg lg:grid lg:h-screen lg:grid-cols-[1.05fr_1fr] lg:overflow-y-auto">
+      {/* Profundidad de fondo, común a las dos columnas: glow radial muy sutil + grain. El rojo
+          funciona como acento (bajísima opacidad), la sensación general sigue siendo negra. */}
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_12%_8%,rgba(232,56,61,0.09),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(90%_70%_at_100%_100%,rgba(232,56,61,0.07),transparent_55%)]" />
+        <div className="absolute inset-0 opacity-[0.035] mix-blend-overlay" style={{ backgroundImage: GRAIN_BG }} />
+      </div>
+
       <BrandPanel />
+
       <div className="flex flex-1 flex-col">
         <MobileBrandHeader />
         <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8">
@@ -254,8 +300,8 @@ export function Auth() {
             {modo === 'recuperar' ? (
               <>
                 <div className="mb-6 flex flex-col items-center gap-3 text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-pegasus-red/25 bg-pegasus-redSoft">
-                    <Lock size={22} className="text-pegasus-red" aria-hidden="true" />
+                  <div className="flex h-[68px] w-[68px] items-center justify-center rounded-2xl border border-pegasus-red/25 bg-pegasus-redSoft">
+                    <Lock size={24} className="text-pegasus-red" aria-hidden="true" />
                   </div>
                   <div>
                     <h1 className="text-lg font-bold text-text-primary">Recuperar contraseña</h1>
@@ -278,7 +324,7 @@ export function Auth() {
                   <Button
                     onClick={enviar}
                     disabled={cargando || !email}
-                    className="flex w-full items-center justify-center gap-2 py-2.5 text-[15px] shadow-lg shadow-pegasus-red/20 transition-all hover:shadow-pegasus-red/30 active:scale-[0.98]"
+                    className="group flex w-full items-center justify-center gap-2 py-3 text-[15px] shadow-lg shadow-pegasus-red/20 transition-all hover:shadow-pegasus-red/30 active:scale-[0.98]"
                   >
                     {cargando ? (
                       <>
@@ -300,8 +346,8 @@ export function Auth() {
             ) : (
               <>
                 <div className="mb-7 flex flex-col items-center gap-3 text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-pegasus-red/25 bg-pegasus-redSoft">
-                    <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="" aria-hidden="true" className="h-9 w-9 rounded-lg" />
+                  <div className="flex h-[68px] w-[68px] items-center justify-center rounded-2xl border border-pegasus-red/25 bg-pegasus-redSoft shadow-[0_0_40px_-10px_rgba(232,56,61,0.5)]">
+                    <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="" aria-hidden="true" className="h-10 w-10 rounded-lg" />
                   </div>
                   <div>
                     <h1 className="text-xl font-bold text-text-primary">
@@ -314,14 +360,20 @@ export function Auth() {
                 <div
                   role="tablist"
                   aria-label="Modo de acceso"
-                  className="mb-6 flex gap-1 rounded-control border border-bg-border bg-bg-panel p-1"
+                  className="relative mb-6 grid grid-cols-2 rounded-control border border-bg-border bg-bg-panel p-1"
                 >
+                  <div
+                    aria-hidden="true"
+                    className={`absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-[8px] bg-pegasus-red shadow-lg shadow-pegasus-red/30 transition-transform duration-300 ease-out ${
+                      modo === 'registro' ? 'translate-x-[calc(100%+4px)]' : 'translate-x-0'
+                    }`}
+                  />
                   <button
                     role="tab"
                     aria-selected={modo === 'entrar'}
                     onClick={() => cambiarModo('entrar')}
-                    className={`flex-1 rounded-[8px] py-2 text-sm font-semibold transition-colors ${
-                      modo === 'entrar' ? 'bg-pegasus-red text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'
+                    className={`relative z-10 rounded-[8px] py-2.5 text-sm font-semibold transition-colors ${
+                      modo === 'entrar' ? 'text-white' : 'text-text-secondary hover:text-text-primary'
                     }`}
                   >
                     Iniciar sesión
@@ -330,8 +382,8 @@ export function Auth() {
                     role="tab"
                     aria-selected={modo === 'registro'}
                     onClick={() => cambiarModo('registro')}
-                    className={`flex-1 rounded-[8px] py-2 text-sm font-semibold transition-colors ${
-                      modo === 'registro' ? 'bg-pegasus-red text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'
+                    className={`relative z-10 rounded-[8px] py-2.5 text-sm font-semibold transition-colors ${
+                      modo === 'registro' ? 'text-white' : 'text-text-secondary hover:text-text-primary'
                     }`}
                   >
                     Crear cuenta
@@ -394,7 +446,7 @@ export function Auth() {
                   <Button
                     onClick={enviar}
                     disabled={cargando || !email || !password}
-                    className="flex w-full items-center justify-center gap-2 py-2.5 text-[15px] shadow-lg shadow-pegasus-red/20 transition-all hover:shadow-pegasus-red/30 active:scale-[0.98]"
+                    className="group flex w-full items-center justify-center gap-2 py-3 text-[15px] shadow-lg shadow-pegasus-red/20 transition-all hover:shadow-pegasus-red/30 hover:brightness-110 active:scale-[0.98]"
                   >
                     {cargando ? (
                       <>
@@ -404,7 +456,7 @@ export function Auth() {
                     ) : (
                       <>
                         {modo === 'entrar' ? 'Iniciar sesión' : 'Crear cuenta'}
-                        <ArrowRight size={16} aria-hidden="true" />
+                        <ArrowRight size={16} className="transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true" />
                       </>
                     )}
                   </Button>
