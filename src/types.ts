@@ -141,6 +141,13 @@ export interface ClosedDietPlan {
   fecha: string
   semanaId: string | null
   notas: string | null
+  /** Opcional — si no se indica, la UI muestra "Dieta cerrada vN" calculado por orden de fecha. */
+  nombre: string | null
+  /** Nunca se borra una dieta físicamente — "Archivar" y "Eliminar" (desde el entrenador)
+   * ponen esto a true; el histórico se conserva siempre. Ver closedDietRepo.ts. */
+  archivada: boolean
+  /** Nota corta opcional de por qué se creó esta versión ("Reducción de cantidades tras revisión semanal"). */
+  motivoCambio: string | null
 }
 
 export type ClosedDietPlanInput = Omit<ClosedDietPlan, 'id'>
@@ -152,10 +159,38 @@ export interface ClosedDietItem {
   momento: string | null
   alimento: string
   gramos: number
+  /** "g" por defecto; también "unidad", "ml", etc. — texto libre introducido por el entrenador. */
+  unidad: string
   orden: number
 }
 
 export type ClosedDietItemInput = Omit<ClosedDietItem, 'id'>
+
+// ---------- Gestor de dietas — plantillas reutilizables del entrenador (nutrition_closed_diet_template) ----------
+
+export interface DietTemplate {
+  id: string
+  trainerId: string
+  nombre: string
+  categoria: string | null
+  descripcion: string | null
+  createdAt: string
+}
+
+export type DietTemplateInput = Omit<DietTemplate, 'id' | 'createdAt'>
+
+export interface DietTemplateItem {
+  id: string
+  templateId: string
+  diaTipo: DiaTipoItem
+  momento: string | null
+  alimento: string
+  cantidad: number
+  unidad: string
+  orden: number
+}
+
+export type DietTemplateItemInput = Omit<DietTemplateItem, 'id'>
 
 // ---------- Revisiones y pagos (centro de control del entrenador) ----------
 

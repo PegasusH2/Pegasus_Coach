@@ -4,7 +4,8 @@ import { listWeightEntries } from '@/lib/supabase/bodyWeightRepo'
 import { listMacroPlans, getActiveMacroPlan } from '@/lib/supabase/macroPlanRepo'
 import { listMeasurements } from '@/lib/supabase/measurementRepo'
 import { listMesociclos } from '@/lib/supabase/mesocicloRepo'
-import { getActiveClosedDietPlan, listClosedDietItems, listClosedDietPlans } from '@/lib/supabase/closedDietRepo'
+import { getActiveClosedDietPlan, listClosedDietItems, listClosedDietPlans, listScheduledClosedDietPlans } from '@/lib/supabase/closedDietRepo'
+import { listDietTemplates } from '@/lib/supabase/dietTemplateRepo'
 import { getProfile } from '@/lib/supabase/profileRepo'
 import { getResumenEntrenador } from '@/lib/supabase/dashboardRepo'
 import { listPaymentsByLink } from '@/lib/supabase/paymentRepo'
@@ -84,6 +85,19 @@ export function useClosedDietItems(planId: string | null) {
 export function useClosedDietPlans() {
   const { targetUserId } = useSession()
   return useAsyncData(() => (targetUserId ? listClosedDietPlans(targetUserId) : Promise.resolve([])), [targetUserId])
+}
+
+export function useScheduledClosedDietPlans() {
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listScheduledClosedDietPlans(targetUserId) : Promise.resolve([])), [targetUserId])
+}
+
+/** Gestor de dietas — siempre sobre la propia cuenta del entrenador, nunca sobre el
+ * cliente que esté viendo (es su biblioteca personal, no la de un cliente). */
+export function useDietTemplates() {
+  const { session } = useSession()
+  const trainerId = session?.user.id ?? null
+  return useAsyncData(() => (trainerId ? listDietTemplates(trainerId) : Promise.resolve([])), [trainerId])
 }
 
 /** Perfil de a quién apuntan las pantallas ahora mismo (uno mismo, o el cliente que

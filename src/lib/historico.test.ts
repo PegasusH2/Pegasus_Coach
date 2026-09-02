@@ -30,7 +30,17 @@ function macroPlan(overrides: Partial<MacroPlan>): MacroPlan {
 }
 
 function closedDietPlan(overrides: Partial<ClosedDietPlan>): ClosedDietPlan {
-  return { id: 'c-' + overrides.fecha, userId: 'u1', fecha: '2026-08-01', semanaId: null, notas: null, ...overrides }
+  return {
+    id: 'c-' + overrides.fecha,
+    userId: 'u1',
+    fecha: '2026-08-01',
+    semanaId: null,
+    notas: null,
+    nombre: null,
+    archivada: false,
+    motivoCambio: null,
+    ...overrides,
+  }
 }
 
 describe('construirHistorico', () => {
