@@ -88,3 +88,17 @@ body {
     animation: none;
   }
 }
+
+/* Red de seguridad global de accesibilidad: acorta a prácticamente instantánea
+   cualquier transición/animación de la app (incluidas las utilidades
+   transition-* de Tailwind, que no respetan prefers-reduced-motion por sí
+   solas) en vez de quitarla — el estado final sigue aplicándose, solo que sin
+   recorrido visual. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

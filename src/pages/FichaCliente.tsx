@@ -71,25 +71,27 @@ export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (
         ))}
       </div>
 
-      {tab === 'datos' && <DatosTab />}
-      {tab === 'macros' && perfilCliente && (
-        <div className="flex flex-col gap-4">
-          <TipoNutricionCard
-            userId={clienteActivo.id}
-            tipoActual={perfilCliente.tipoDieta}
-            distingueDiasActual={perfilCliente.dietaCerradaDistingueDias}
-            bloqueado={false}
-            nombreCliente={clienteActivo.nombre}
-            onGuardado={refetchPerfilCliente}
-          />
-          <Macros key={perfilCliente.tipoDieta} />
-        </div>
-      )}
-      {tab === 'peso' && <Peso />}
-      {tab === 'progreso' && <Progreso tab={progresoTab} onNavigate={(r) => setProgresoTab(r.progresoTab ?? 'evolucion')} />}
-      {tab === 'entrenamiento' && <EntrenamientoCliente />}
-      {tab === 'revisiones' && <RevisionesTab />}
-      {tab === 'pagos' && <PagosTab />}
+      <div key={tab} className="tab-fade">
+        {tab === 'datos' && <DatosTab />}
+        {tab === 'macros' && perfilCliente && (
+          <div className="flex flex-col gap-4">
+            <TipoNutricionCard
+              userId={clienteActivo.id}
+              tipoActual={perfilCliente.tipoDieta}
+              distingueDiasActual={perfilCliente.dietaCerradaDistingueDias}
+              bloqueado={false}
+              nombreCliente={clienteActivo.nombre}
+              onGuardado={refetchPerfilCliente}
+            />
+            <Macros key={perfilCliente.tipoDieta} />
+          </div>
+        )}
+        {tab === 'peso' && <Peso />}
+        {tab === 'progreso' && <Progreso tab={progresoTab} onNavigate={(r) => setProgresoTab(r.progresoTab ?? 'evolucion')} />}
+        {tab === 'entrenamiento' && <EntrenamientoCliente />}
+        {tab === 'revisiones' && <RevisionesTab />}
+        {tab === 'pagos' && <PagosTab />}
+      </div>
     </div>
   )
 }
