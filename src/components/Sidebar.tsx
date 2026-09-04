@@ -1,6 +1,5 @@
 import {
   ChevronDown,
-  Download,
   Home,
   LineChart,
   LogOut,
@@ -8,7 +7,6 @@ import {
   Ruler,
   Scale,
   Settings,
-  Upload,
   Users,
   X,
 } from 'lucide-react'
@@ -21,8 +19,6 @@ interface SidebarProps {
   onNavigate: (route: Route) => void
   nombrePerfil: string
   rol: Rol
-  onExportar: () => void
-  onImportarExcel: () => void
   onCerrarSesion: () => void
   /** Cierra el drawer en móvil — el mismo Sidebar se usa como panel fijo en desktop
    * y como drawer deslizante en móvil (ver App.tsx); el botón solo se ve en móvil. */
@@ -60,8 +56,13 @@ function NavItem({
   )
 }
 
-export function Sidebar({ route, onNavigate, nombrePerfil, rol, onExportar, onImportarExcel, onCerrarSesion, onClose }: SidebarProps) {
+export function Sidebar({ route, onNavigate, nombrePerfil, rol, onCerrarSesion, onClose }: SidebarProps) {
   const progresoAbierto = route.section === 'progreso'
+  // Macros/Peso/Progreso son el seguimiento PERSONAL (rol 'personal') — el
+  // entrenador gestiona el progreso de sus clientes desde la ficha, no aquí.
+  // No se elimina nada: mismos componentes, solo se ocultan estos 3 accesos
+  // de nivel superior cuando el rol es 'entrenador' (ver App.tsx).
+  const mostrarSeguimientoPersonal = rol !== 'entrenador'
 
   const irA = (section: Section) => {
     if (section === 'progreso') onNavigate({ section, progresoTab: route.progresoTab ?? 'evolucion' })
@@ -97,35 +98,41 @@ export function Sidebar({ route, onNavigate, nombrePerfil, rol, onExportar, onIm
             label="Inicio"
             onClick={() => irA('inicio')}
           />
-          <NavItem
-            active={route.section === 'macros'}
-            icon={<PieChart size={16} />}
-            label="Macros"
-            onClick={() => irA('macros')}
-          />
-          <NavItem
-            active={route.section === 'peso'}
-            icon={<Scale size={16} />}
-            label="Peso"
-            onClick={() => irA('peso')}
-          />
-
-          <button
-            onClick={() => irA('progreso')}
-            className={`flex w-full items-center justify-between rounded-control px-3 py-2.5 text-sm font-medium transition-colors ${
-              progresoAbierto ? 'text-pegasus-red' : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-            }`}
-          >
-            <span className="flex items-center gap-3">
-              <LineChart size={16} />
-              Progreso
-            </span>
-            <ChevronDown
-              size={14}
-              className={`transition-transform ${progresoAbierto ? 'rotate-180' : ''}`}
+          {mostrarSeguimientoPersonal && (
+            <NavItem
+              active={route.section === 'macros'}
+              icon={<PieChart size={16} />}
+              label="Macros"
+              onClick={() => irA('macros')}
             />
-          </button>
-          {progresoAbierto && (
+          )}
+          {mostrarSeguimientoPersonal && (
+            <NavItem
+              active={route.section === 'peso'}
+              icon={<Scale size={16} />}
+              label="Peso"
+              onClick={() => irA('peso')}
+            />
+          )}
+
+          {mostrarSeguimientoPersonal && (
+            <button
+              onClick={() => irA('progreso')}
+              className={`flex w-full items-center justify-between rounded-control px-3 py-2.5 text-sm font-medium transition-colors ${
+                progresoAbierto ? 'text-pegasus-red' : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <LineChart size={16} />
+                Progreso
+              </span>
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${progresoAbierto ? 'rotate-180' : ''}`}
+              />
+            </button>
+          )}
+          {mostrarSeguimientoPersonal && progresoAbierto && (
             <div className="ml-6 flex flex-col gap-0.5 border-l border-bg-border pl-3">
               {PROGRESO_TABS.map((tab) => (
                 <button
@@ -173,20 +180,6 @@ export function Sidebar({ route, onNavigate, nombrePerfil, rol, onExportar, onIm
         </div>
 
         <div className="flex flex-col gap-1">
-          <button
-            onClick={onExportar}
-            className="flex items-center gap-2 rounded-control px-2 py-1.5 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-          >
-            <Download size={13} />
-            Exportar datos
-          </button>
-          <button
-            onClick={onImportarExcel}
-            className="flex items-center gap-2 rounded-control px-2 py-1.5 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-          >
-            <Upload size={13} />
-            Importar Excel
-          </button>
           <button
             onClick={onCerrarSesion}
             className="flex items-center gap-2 rounded-control px-2 py-1.5 text-xs text-text-secondary hover:bg-bg-hover hover:text-pegasus-red"

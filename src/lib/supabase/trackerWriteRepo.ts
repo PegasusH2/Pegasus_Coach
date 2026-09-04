@@ -1,8 +1,12 @@
-// Escritura del entrenador sobre entrenamiento real — ejercicios, rutinas
-// (templates/template_exercises) y entrenamiento ya registrado (workouts/
-// workout_exercises/sets). Tablas propiedad de Pegasus Tracker, mismo proyecto
-// Supabase. Ver supabase/migrations/0007_control_total_entrenador.sql para el
-// porqué (trigger de ownership + RLS aditiva).
+// Escritura del entrenador sobre PLANIFICACIÓN de entrenamiento — ejercicios y
+// rutinas (templates/template_exercises). Tablas propiedad de Pegasus Tracker,
+// mismo proyecto Supabase. Ver supabase/migrations/0007_control_total_entrenador.sql
+// para el porqué (trigger de ownership + RLS aditiva).
+//
+// La EJECUCIÓN (workouts/workout_exercises/sets) ya no se escribe desde aquí:
+// es responsabilidad exclusiva de Pegasus Tracker — el entrenador solo
+// consulta (ver trackerReadRepo.ts y
+// supabase/migrations/0009_revertir_ejecucion_entrenador.sql).
 //
 // Reglas que hay que respetar SIEMPRE en este fichero (documentadas en
 // 03_SUPABASE_CONTEXT.md/01_TRACKER_CONTEXT.md del ecosistema):
@@ -11,27 +15,15 @@
 //   - `id` se genera en el cliente con crypto.randomUUID(), igual que Tracker.
 //   - Los borrados son SIEMPRE lógicos (`deleted_at`), nunca un DELETE real — un
 //     DELETE real nunca llegaría al Dexie del cliente vía sync.
-//   - Un borrado en cascada (workout → sus workout_exercises → sus sets) debe
-//     marcar deleted_at en CADA fila afectada, no solo en la raíz.
 import { supabase } from './client'
-import {
-  cleanNonNegativeInt,
-  cleanNonNegativeNumber,
-  requireNonEmptyString,
-  requireValidDate,
-} from './trackerValidate'
+import { cleanNonNegativeInt, requireNonEmptyString } from './trackerValidate'
 import type {
   TrackerExercise,
   TrackerExerciseInput,
-  TrackerSet,
-  TrackerSetInput,
   TrackerTemplate,
   TrackerTemplateExercise,
   TrackerTemplateExerciseInput,
   TrackerTemplateInput,
-  TrackerWorkout,
-  TrackerWorkoutExercise,
-  TrackerWorkoutInput,
 } from '@/types'
 
 function fail(action: string, table: string, error: { message: string }): never {
@@ -218,96 +210,4 @@ export async function updateTemplateExercise(
 export async function removeTemplateExercise(id: string): Promise<void> {
   const { error } = await supabase.from('template_exercises').update({ deleted_at: nowIso() }).eq('id', id)
   if (error) fail('Error al quitar', 'template_exercises', error)
-}
-
-// ---------------------------------------------------------------------
-// Entrenamiento realizado (workouts / workout_exercises / sets)
-// ---------------------------------------------------------------------
-
-export async function createWorkout(userId: string, input: TrackerWorkoutInput): Promise<TrackerWorkout> {
-  const fecha = requireValidDate(input.fecha, 'La fecha del entrenamiento')
-  const { data, error } = await supabase
-    .from('workouts')
-    .insert({
-      id: crypto.randomUUID(),
-      user_id: userId,
-      name: input.name,
-      date: fecha,
-      notes: input.notas ?? '',
-      completed: input.completado,
-      template_id: input.templateId,
-    })
-    .select('id, user_id, name, date, completed')
-    .single()
-  if (error) fail('Error al crear', 'workouts', error)
-  const row = data as { id: string; user_id: string; name: string | null; date: string; completed: boolean }
-  return { id: row.id, userId: row.user_id, name: row.name, date: row.date, completed: row.completed }
-}
-
-/** Borrado en cascada: cada fila afectada (sets → workout_exercises → workout) recibe su propio tombstone. */
-export async function deleteWorkout(id: string): Promise<void> {
-  const { data: exercises, error: readError } = await supabase.from('workout_exercises').select('id').eq('workout_id', id).is('deleted_at', null)
-  if (readError) fail('Error al leer', 'workout_exercises', readError)
-  const exerciseIds = (exercises ?? []).map((e) => e.id)
-  if (exerciseIds.length > 0) {
-    const { data: sets, error: setsReadError } = await supabase.from('sets').select('id').in('workout_exercise_id', exerciseIds).is('deleted_at', null)
-    if (setsReadError) fail('Error al leer', 'sets', setsReadError)
-    const setIds = (sets ?? []).map((s) => s.id)
-    if (setIds.length > 0) {
-      const { error } = await supabase.from('sets').update({ deleted_at: nowIso() }).in('id', setIds)
-      if (error) fail('Error al borrar', 'sets', error)
-    }
-    const { error } = await supabase.from('workout_exercises').update({ deleted_at: nowIso() }).in('id', exerciseIds)
-    if (error) fail('Error al borrar', 'workout_exercises', error)
-  }
-  const { error } = await supabase.from('workouts').update({ deleted_at: nowIso() }).eq('id', id)
-  if (error) fail('Error al borrar', 'workouts', error)
-}
-
-export async function addWorkoutExercise(userId: string, workoutId: string, exerciseId: string, sortOrder: number): Promise<TrackerWorkoutExercise> {
-  const { data, error } = await supabase
-    .from('workout_exercises')
-    .insert({ id: crypto.randomUUID(), user_id: userId, workout_id: workoutId, exercise_id: exerciseId, sort_order: sortOrder })
-    .select('id, workout_id, exercise_id, exercises(name)')
-    .single()
-  if (error) fail('Error al añadir ejercicio', 'workout_exercises', error)
-  const row = data as unknown as { id: string; workout_id: string; exercise_id: string; exercises: { name: string | null } | null }
-  return { id: row.id, workoutId: row.workout_id, exerciseId: row.exercise_id, exerciseNombre: row.exercises?.name ?? null, sets: [] }
-}
-
-export async function addSet(userId: string, workoutExerciseId: string, setNumber: number, input: TrackerSetInput): Promise<TrackerSet> {
-  const { data, error } = await supabase
-    .from('sets')
-    .insert({
-      id: crypto.randomUUID(),
-      user_id: userId,
-      workout_exercise_id: workoutExerciseId,
-      set_number: setNumber,
-      weight: cleanNonNegativeNumber(input.weight),
-      reps: cleanNonNegativeInt(input.reps),
-      rir: cleanNonNegativeInt(input.rir),
-      notes: input.notas ?? '',
-      done: input.done,
-    })
-    .select('id, workout_exercise_id, set_number, weight, reps, rir, done')
-    .single()
-  if (error) fail('Error al crear', 'sets', error)
-  const row = data as { id: string; workout_exercise_id: string; set_number: number; weight: number | null; reps: number | null; rir: number | null; done: boolean }
-  return { id: row.id, workoutExerciseId: row.workout_exercise_id, setNumber: row.set_number, weight: row.weight, reps: row.reps, rir: row.rir, done: row.done }
-}
-
-export async function updateSet(id: string, patch: Partial<Pick<TrackerSetInput, 'weight' | 'reps' | 'rir' | 'done' | 'notas'>>): Promise<void> {
-  const row: Record<string, unknown> = {}
-  if (patch.weight !== undefined) row.weight = cleanNonNegativeNumber(patch.weight)
-  if (patch.reps !== undefined) row.reps = cleanNonNegativeInt(patch.reps)
-  if (patch.rir !== undefined) row.rir = cleanNonNegativeInt(patch.rir)
-  if (patch.done !== undefined) row.done = patch.done
-  if (patch.notas !== undefined) row.notes = patch.notas
-  const { error } = await supabase.from('sets').update(row).eq('id', id)
-  if (error) fail('Error al actualizar', 'sets', error)
-}
-
-export async function deleteSet(id: string): Promise<void> {
-  const { error } = await supabase.from('sets').update({ deleted_at: nowIso() }).eq('id', id)
-  if (error) fail('Error al borrar', 'sets', error)
 }

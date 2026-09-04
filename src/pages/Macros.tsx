@@ -3,10 +3,9 @@ import { useTargetProfile } from '@/hooks/useData'
 import { MacrosFlexibles } from './nutrition/MacrosFlexibles'
 import { DietaCerrada } from './nutrition/DietaCerrada'
 import { HistoricoNutricional } from './nutrition/HistoricoNutricional'
-import { GuiaAlimentos } from './nutrition/GuiaAlimentos'
 import type { TipoDieta } from '@/types'
 
-type NutricionTab = 'contenido' | 'historico' | 'guia'
+type NutricionTab = 'contenido' | 'historico'
 
 export function Macros() {
   const { data: targetProfile, loading } = useTargetProfile()
@@ -19,7 +18,6 @@ export function Macros() {
   const TABS: { key: NutricionTab; label: string }[] = [
     { key: 'contenido', label: labelContenido },
     { key: 'historico', label: 'Histórico' },
-    { key: 'guia', label: 'Guía' },
   ]
 
   return (
@@ -41,8 +39,6 @@ export function Macros() {
       <div key={tab} className="tab-fade">
         {tab === 'historico' ? (
           <HistoricoNutricional tipoDietaActual={tipoDieta} />
-        ) : tab === 'guia' ? (
-          <GuiaAlimentos />
         ) : tipoDieta === 'cerrada' ? (
           <DietaCerrada distingueDias={targetProfile?.dietaCerradaDistingueDias ?? false} />
         ) : (

@@ -4,7 +4,6 @@ import { Sidebar } from './components/Sidebar'
 import { DiaTipoProvider } from './lib/DiaTipoContext'
 import { SessionProvider, useSession } from './lib/SessionContext'
 import { signOut } from './lib/supabase/auth'
-import { exportarDatosJson } from './lib/exportData'
 import type { Route } from './lib/nav'
 import { ActualizarPassword, Auth, CompletarPerfil } from './pages/Auth'
 import { Inicio } from './pages/Inicio'
@@ -21,11 +20,12 @@ function AppShell() {
   const [menuAbierto, setMenuAbierto] = useState(false)
   const { session, profile, profileChecked, profileError, clienteActivo, setClienteActivo, recoveryMode } = useSession()
 
-  // Al cambiar de cuenta (o cerrar sesión), no debe quedar la sección de una
-  // pantalla que quizá no aplique al nuevo rol (p.ej. "clientes").
+  // Al cambiar de cuenta (o cerrar sesión) o de rol (p.ej. Personal → Entrenador
+  // desde Ajustes), no debe quedar la sección de una pantalla que quizá no
+  // aplique ya (p.ej. "clientes", o "peso" propio si se pasa a Entrenador).
   useEffect(() => {
     setRoute({ section: 'inicio' })
-  }, [session?.user.id])
+  }, [session?.user.id, profile?.role])
 
   // El drawer móvil se cierra solo: al elegir una sección, al pulsar Escape,
   // o al tocar fuera (backdrop, ver más abajo). Mientras está abierto se
@@ -71,15 +71,6 @@ function AppShell() {
   }
   // Sesión válida (p.ej. cuenta ya existente en Pegasus Tracker) sin fila de profiles todavía.
   if (!profile) return <CompletarPerfil />
-
-  async function onExportar() {
-    if (!session) return
-    await exportarDatosJson(session.user.id)
-  }
-
-  function onImportarExcel() {
-    setRoute({ section: 'ajustes' })
-  }
 
   return (
     <DiaTipoProvider>
@@ -133,8 +124,6 @@ function AppShell() {
               onNavigate={navegarYCerrarMenu}
               nombrePerfil={profile.nombre}
               rol={profile.role}
-              onExportar={onExportar}
-              onImportarExcel={onImportarExcel}
               onCerrarSesion={signOut}
               onClose={() => setMenuAbierto(false)}
             />
@@ -142,9 +131,9 @@ function AppShell() {
 
           <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4 md:px-8 md:py-6">
             {route.section === 'inicio' && <Inicio onNavigate={setRoute} />}
-            {route.section === 'macros' && <Macros />}
-            {route.section === 'peso' && <Peso />}
-            {route.section === 'progreso' && (
+            {route.section === 'macros' && profile.role !== 'entrenador' && <Macros />}
+            {route.section === 'peso' && profile.role !== 'entrenador' && <Peso />}
+            {route.section === 'progreso' && profile.role !== 'entrenador' && (
               <Progreso tab={route.progresoTab ?? 'evolucion'} onNavigate={setRoute} />
             )}
             {route.section === 'clientes' && profile.role === 'entrenador' && <Clientes onNavigate={setRoute} />}

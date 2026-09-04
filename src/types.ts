@@ -262,30 +262,11 @@ export interface TrackerWorkoutExercise {
   sets: TrackerSet[]
 }
 
-// ---------- Escritura del entrenador sobre entrenamiento real (control total, ver
-// supabase/migrations/0007_control_total_entrenador.sql) ----------
-// Mismas tablas de arriba (workouts/workout_exercises/sets), ya no de solo lectura:
-// el entrenador vinculado puede crear/editar/borrar. Modelo ADITIVO — el cliente
-// conserva su propia escritura desde Tracker sin cambios.
-
-export interface TrackerWorkoutInput {
-  userId: string
-  name: string | null
-  fecha: string
-  notas: string
-  completado: boolean
-  templateId: string | null
-}
-
-export interface TrackerSetInput {
-  workoutExerciseId: string
-  setNumber: number
-  weight: number | null
-  reps: number | null
-  rir: number | null
-  done: boolean
-  notas: string
-}
+// ---------- Escritura del entrenador sobre PLANIFICACIÓN (ejercicios/rutinas,
+// ver supabase/migrations/0007_control_total_entrenador.sql) ----------
+// La ejecución (workouts/workout_exercises/sets) ya no se escribe desde Coach
+// — ver supabase/migrations/0009_revertir_ejecucion_entrenador.sql — por eso
+// no hay tipos *Input para esas tablas aquí, solo lectura (arriba).
 
 export interface TrackerExercise {
   id: string

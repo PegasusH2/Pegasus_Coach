@@ -1,11 +1,11 @@
-// Pestaña "Entrenamiento" de la ficha del cliente — control total del entrenador
-// (ver supabase/migrations/0007_control_total_entrenador.sql y
-// src/lib/supabase/trackerWriteRepo.ts). Dos sub-vistas:
-//   - Ejecución: lo que el cliente ya ha entrenado (workouts/sets), ahora editable.
-//   - Planificación: ejercicios y rutinas (templates) que el entrenador prepara para
-//     el cliente — funcionalidad nueva, no existía nada de esto en Coach.
-// Modelo ADITIVO: el cliente conserva su propio acceso de escritura en Tracker sin
-// cambios — esto es una capa adicional, nunca una sustitución.
+// Pestaña "Entrenamiento" de la ficha del cliente. Dos sub-vistas:
+//   - Ejecución: SOLO CONSULTA de lo que el cliente ya ha entrenado (workouts/
+//     sets) en Pegasus Tracker — el entrenador puede verlo, nunca modificarlo.
+//     La ejecución (registrar/editar peso, reps, RIR, series hechas) es
+//     responsabilidad de Tracker, no de Coach (ver
+//     supabase/migrations/0009_revertir_ejecucion_entrenador.sql).
+//   - Planificación: ejercicios y rutinas (templates) que el entrenador prepara
+//     para el cliente — el entrenador SÍ puede crear/editar/borrar aquí.
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Dumbbell, ListChecks, Plus, Trash2 } from 'lucide-react'
 import { useExercisesCliente, useTemplateExercises, useTemplatesCliente, useWorkoutsCliente } from '@/hooks/useData'
@@ -14,7 +14,7 @@ import * as trackerWriteRepo from '@/lib/supabase/trackerWriteRepo'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
-import { formatFechaCorta, hoyIso } from '@/lib/format'
+import { formatFechaCorta } from '@/lib/format'
 import type { TrackerExercise, TrackerTemplate } from '@/types'
 
 /** Botón de borrar con confirmación inline — mismo patrón (sin modal) que ya usa el
@@ -64,68 +64,25 @@ export function EntrenamientoCliente() {
           </button>
         ))}
       </div>
-      {sub === 'ejecucion' ? <EjecucionView /> : <PlanificacionView />}
+      <div key={sub} className="tab-fade">
+        {sub === 'ejecucion' ? <EjecucionView /> : <PlanificacionView />}
+      </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------
-// Ejecución — entrenamiento ya registrado (workouts/workout_exercises/sets)
+// Ejecución — SOLO CONSULTA del entrenamiento ya registrado por el cliente
+// (workouts/workout_exercises/sets). Sin crear, editar ni borrar desde Coach.
 // ---------------------------------------------------------------------
 
 function EjecucionView() {
-  const { targetUserId } = useSession()
-  const { data: workouts, loading, refetch } = useWorkoutsCliente()
-  const { data: ejerciciosDisponibles } = useExercisesCliente()
-  const [creando, setCreando] = useState(false)
-  const [fecha, setFecha] = useState(hoyIso())
-  const [nombre, setNombre] = useState('')
-  const [guardando, setGuardando] = useState(false)
-
-  async function crearEntrenamiento() {
-    if (!targetUserId) return
-    setGuardando(true)
-    try {
-      await trackerWriteRepo.createWorkout(targetUserId, { userId: targetUserId, name: nombre || null, fecha, notas: '', completado: false, templateId: null })
-      setNombre('')
-      setCreando(false)
-      await refetch()
-    } finally {
-      setGuardando(false)
-    }
-  }
-
-  async function borrarEntrenamiento(id: string) {
-    await trackerWriteRepo.deleteWorkout(id)
-    await refetch()
-  }
+  const { data: workouts, loading } = useWorkoutsCliente()
 
   if (loading) return <Card>Cargando…</Card>
 
   return (
     <div className="flex flex-col gap-4">
-      {creando ? (
-        <Card>
-          <CardLabel>Nuevo entrenamiento</CardLabel>
-          <div className="flex items-end gap-3">
-            <Field label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-            <Field label="Nombre (opcional)" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Push día 1" />
-            <Button onClick={crearEntrenamiento} disabled={guardando}>
-              Crear
-            </Button>
-            <Button variant="secondary" onClick={() => setCreando(false)} disabled={guardando}>
-              Cancelar
-            </Button>
-          </div>
-        </Card>
-      ) : (
-        <Button variant="secondary" onClick={() => setCreando(true)} className="w-fit">
-          <span className="flex items-center gap-1.5">
-            <Plus size={14} /> Registrar entrenamiento
-          </span>
-        </Button>
-      )}
-
       {(!workouts || workouts.length === 0) && (
         <Card>
           <CardLabel icon={<Dumbbell size={13} />}>Entrenamiento</CardLabel>
@@ -137,161 +94,31 @@ function EjecucionView() {
         <Card key={w.id}>
           <div className="mb-3 flex items-center justify-between">
             <CardLabel icon={<Dumbbell size={13} />}>{w.name || 'Entrenamiento'}</CardLabel>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-text-muted">{formatFechaCorta(w.date)}</span>
-              <BotonBorrar onConfirm={() => borrarEntrenamiento(w.id)} label="Eliminar entrenamiento" />
-            </div>
+            <span className="text-xs text-text-muted">{formatFechaCorta(w.date)}</span>
           </div>
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             {w.ejercicios.map((ej) => (
-              <EjercicioEjecucion key={ej.id} workoutId={w.id} ejercicio={ej} onChange={refetch} />
+              <div key={ej.id}>
+                <div className="mb-1.5 text-sm font-medium">{ej.exerciseNombre || 'Ejercicio'}</div>
+                <div className="flex flex-col gap-1.5">
+                  {ej.sets.map((s, i) => (
+                    <div key={s.id} className="flex items-center gap-2 rounded-control border border-bg-border bg-bg-panel/60 px-2.5 py-1.5 text-xs text-text-secondary">
+                      <span className="w-4 text-text-muted">{i + 1}</span>
+                      <span>{s.weight ?? '—'} kg</span>
+                      <span className="text-text-muted">×</span>
+                      <span>{s.reps ?? '—'} reps</span>
+                      <span className="text-text-muted">· RIR {s.rir ?? '—'}</span>
+                      <span className="ml-auto">{s.done ? '✓ Hecha' : 'Pendiente'}</span>
+                    </div>
+                  ))}
+                  {ej.sets.length === 0 && <p className="text-xs text-text-muted">Sin series registradas.</p>}
+                </div>
+              </div>
             ))}
-            <AnadirEjercicioAEntrenamiento workoutId={w.id} ejerciciosDisponibles={ejerciciosDisponibles ?? []} sortOrder={w.ejercicios.length} onAdded={refetch} />
+            {w.ejercicios.length === 0 && <p className="text-xs text-text-muted">Sin ejercicios registrados.</p>}
           </div>
         </Card>
       ))}
-    </div>
-  )
-}
-
-function EjercicioEjecucion({
-  workoutId,
-  ejercicio,
-  onChange,
-}: {
-  workoutId: string
-  ejercicio: { id: string; exerciseNombre: string | null; sets: { id: string; setNumber: number; weight: number | null; reps: number | null; rir: number | null; done: boolean }[] }
-  onChange: () => void
-}) {
-  const { targetUserId } = useSession()
-
-  async function actualizarSet(id: string, patch: Partial<{ weight: number | null; reps: number | null; rir: number | null; done: boolean }>) {
-    await trackerWriteRepo.updateSet(id, patch)
-    onChange()
-  }
-
-  async function borrarSet(id: string) {
-    await trackerWriteRepo.deleteSet(id)
-    onChange()
-  }
-
-  async function anadirSerie() {
-    if (!targetUserId) return
-    const numero = ejercicio.sets.length + 1
-    await trackerWriteRepo.addSet(targetUserId, ejercicio.id, numero, { workoutExerciseId: ejercicio.id, setNumber: numero, weight: null, reps: null, rir: null, done: false, notas: '' })
-    onChange()
-  }
-
-  return (
-    <div>
-      <div className="mb-1.5 text-sm font-medium">{ejercicio.exerciseNombre || 'Ejercicio'}</div>
-      <div className="flex flex-col gap-1.5">
-        {ejercicio.sets.map((s, i) => (
-          <div key={s.id} className="flex items-center gap-2 rounded-control border border-bg-border bg-bg-panel/60 px-2.5 py-1.5 text-xs">
-            <span className="w-4 text-text-muted">{i + 1}</span>
-            <input
-              type="number"
-              defaultValue={s.weight ?? ''}
-              onBlur={(e) => actualizarSet(s.id, { weight: e.target.value === '' ? null : Number(e.target.value) })}
-              placeholder="kg"
-              className="w-16 rounded-[6px] border border-bg-border bg-bg-card px-1.5 py-1 text-text-primary outline-none focus:border-pegasus-red"
-            />
-            <span className="text-text-muted">×</span>
-            <input
-              type="number"
-              defaultValue={s.reps ?? ''}
-              onBlur={(e) => actualizarSet(s.id, { reps: e.target.value === '' ? null : Number(e.target.value) })}
-              placeholder="reps"
-              className="w-14 rounded-[6px] border border-bg-border bg-bg-card px-1.5 py-1 text-text-primary outline-none focus:border-pegasus-red"
-            />
-            <span className="text-text-muted">RIR</span>
-            <input
-              type="number"
-              defaultValue={s.rir ?? ''}
-              onBlur={(e) => actualizarSet(s.id, { rir: e.target.value === '' ? null : Number(e.target.value) })}
-              placeholder="—"
-              className="w-12 rounded-[6px] border border-bg-border bg-bg-card px-1.5 py-1 text-text-primary outline-none focus:border-pegasus-red"
-            />
-            <label className="ml-1 flex items-center gap-1 text-text-secondary">
-              <input type="checkbox" checked={s.done} onChange={(e) => actualizarSet(s.id, { done: e.target.checked })} />
-              Hecha
-            </label>
-            <span className="flex-1" />
-            <BotonBorrar onConfirm={() => borrarSet(s.id)} label="Eliminar serie" />
-          </div>
-        ))}
-        <button onClick={anadirSerie} className="flex w-fit items-center gap-1 text-xs font-medium text-pegasus-red hover:text-pegasus-redDark">
-          <Plus size={12} /> Añadir serie
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function AnadirEjercicioAEntrenamiento({
-  workoutId,
-  ejerciciosDisponibles,
-  sortOrder,
-  onAdded,
-}: {
-  workoutId: string
-  ejerciciosDisponibles: TrackerExercise[]
-  sortOrder: number
-  onAdded: () => void
-}) {
-  const { targetUserId } = useSession()
-  const [abierto, setAbierto] = useState(false)
-  const [seleccionId, setSeleccionId] = useState('')
-  const [nuevoNombre, setNuevoNombre] = useState('')
-
-  async function anadir() {
-    if (!targetUserId) return
-    let exerciseId = seleccionId
-    if (!exerciseId && nuevoNombre.trim()) {
-      const creado = await trackerWriteRepo.createExercise(targetUserId, { userId: targetUserId, name: nuevoNombre, muscleGroup: '', notes: '', archived: false })
-      exerciseId = creado.id
-    }
-    if (!exerciseId) return
-    await trackerWriteRepo.addWorkoutExercise(targetUserId, workoutId, exerciseId, sortOrder)
-    setSeleccionId('')
-    setNuevoNombre('')
-    setAbierto(false)
-    onAdded()
-  }
-
-  if (!abierto) {
-    return (
-      <button onClick={() => setAbierto(true)} className="flex w-fit items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-pegasus-red">
-        <Plus size={13} /> Añadir ejercicio
-      </button>
-    )
-  }
-
-  return (
-    <div className="flex flex-wrap items-end gap-2 rounded-control border border-bg-border bg-bg-panel/60 p-2.5">
-      <label className="flex flex-col gap-1">
-        <span className="text-xs text-text-secondary">Ejercicio existente</span>
-        <select
-          value={seleccionId}
-          onChange={(e) => setSeleccionId(e.target.value)}
-          className="rounded-control border border-bg-border bg-bg-panel px-2 py-1.5 text-sm text-text-primary outline-none"
-        >
-          <option value="">— elegir —</option>
-          {ejerciciosDisponibles.map((ex) => (
-            <option key={ex.id} value={ex.id}>
-              {ex.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <span className="pb-2 text-xs text-text-muted">o</span>
-      <Field label="Ejercicio nuevo" value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)} placeholder="Nombre" />
-      <Button onClick={anadir} disabled={!seleccionId && !nuevoNombre.trim()}>
-        Añadir
-      </Button>
-      <Button variant="secondary" onClick={() => setAbierto(false)}>
-        Cancelar
-      </Button>
     </div>
   )
 }
