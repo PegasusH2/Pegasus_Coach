@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { calcularEdad, calcularIMC, calcularMacroPlan, calorias, clasificacionIMC, porKg } from './calculos'
+import { calcularEdad, calcularMacroPlan, calorias, porKg } from './calculos'
 import type { MacroPlan } from '@/types'
 
 function basePlan(overrides: Partial<MacroPlan>): MacroPlan {
@@ -119,26 +119,5 @@ describe('calcularEdad', () => {
   })
   it('cumpleaños es hoy', () => {
     expect(calcularEdad('2000-09-06')).toBe(26)
-  })
-})
-
-describe('calcularIMC / clasificacionIMC', () => {
-  it('null si falta peso o altura', () => {
-    expect(calcularIMC(null, 180)).toBeNull()
-    expect(calcularIMC(80, null)).toBeNull()
-    expect(calcularIMC(80, 0)).toBeNull()
-  })
-  it('80kg / 180cm -> 24.69 (Normal)', () => {
-    const imc = calcularIMC(80, 180)
-    expect(imc).toBeCloseTo(24.691358, 5)
-    expect(clasificacionIMC(imc)).toBe('Normal')
-  })
-  it('clasifica bajo peso, sobrepeso y obesidad', () => {
-    expect(clasificacionIMC(17)).toBe('Bajo peso')
-    expect(clasificacionIMC(27)).toBe('Sobrepeso')
-    expect(clasificacionIMC(32)).toBe('Obesidad')
-  })
-  it('clasificacionIMC(null) es null', () => {
-    expect(clasificacionIMC(null)).toBeNull()
   })
 })

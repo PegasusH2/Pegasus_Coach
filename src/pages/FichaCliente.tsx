@@ -23,7 +23,7 @@ import { Progreso } from './Progreso'
 import { EntrenamientoCliente } from './EntrenamientoCliente'
 import { WeightChart } from '@/components/WeightChart'
 import { formatFechaCorta, formatFechaRelativa, formatNumero, hoyIso } from '@/lib/format'
-import { calcularEdad, calcularIMC, calcularMacroPlan, clasificacionIMC } from '@/lib/calculos'
+import { calcularEdad, calcularMacroPlan } from '@/lib/calculos'
 import { rolLabel, sexoLabel } from '@/lib/supabase/profileRepo'
 import type { FichaTab, ProgresoTab, Route } from '@/lib/nav'
 import type { EstadoRevision } from '@/types'
@@ -138,7 +138,6 @@ function DatosTab() {
     mediciones && mediciones.length > 0 ? [...mediciones].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] : null
 
   const edad = calcularEdad(perfil.fechaNacimiento)
-  const imc = calcularIMC(pesoActual, perfil.altura)
 
   // Objetivos calóricos: se reutiliza tal cual el plan de macros activo (si el
   // cliente usa Macros flexibles) — no es un sistema nuevo, solo un resumen.
@@ -147,10 +146,9 @@ function DatosTab() {
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <div className="grid grid-cols-4 gap-4 text-sm">
+        <div className="grid grid-cols-3 gap-4 text-sm">
           <Stat label="Peso actual" value={pesoActual != null ? `${formatNumero(pesoActual, 1)} kg` : '—'} />
           <Stat label="Altura" value={perfil.altura != null ? `${formatNumero(perfil.altura, 0)} cm` : '—'} />
-          <Stat label="IMC" value={imc != null ? `${formatNumero(imc, 1)} · ${clasificacionIMC(imc)}` : '—'} />
           <Stat
             label="% graso"
             value={ultimaMedicion?.porcentajeGraso != null ? `${formatNumero(ultimaMedicion.porcentajeGraso, 1)} %` : '—'}
@@ -176,7 +174,6 @@ function DatosTab() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <Stat label="Peso inicial" value={pesoInicial != null ? `${formatNumero(pesoInicial, 1)} kg` : '—'} />
             <Stat label="Peso actual" value={pesoActual != null ? `${formatNumero(pesoActual, 1)} kg` : '—'} />
-            <Stat label="IMC" value={imc != null ? formatNumero(imc, 1) : '—'} />
             <Stat label="Última medición" value={ultimaMedicion ? formatFechaCorta(ultimaMedicion.fecha) : '—'} />
           </div>
         </Card>

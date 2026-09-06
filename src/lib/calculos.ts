@@ -101,18 +101,3 @@ export function calcularEdad(fechaNacimiento: string | null): number | null {
   return edad
 }
 
-/** IMC = peso(kg) / altura(m)^2. null si falta cualquiera de los dos datos. */
-export function calcularIMC(pesoKg: number | null, alturaCm: number | null): number | null {
-  if (pesoKg == null || alturaCm == null || alturaCm <= 0) return null
-  const alturaM = alturaCm / 100
-  return pesoKg / (alturaM * alturaM)
-}
-
-/** Clasificación estándar OMS del IMC. */
-export function clasificacionIMC(imc: number | null): string | null {
-  if (imc == null) return null
-  if (imc < 18.5) return 'Bajo peso'
-  if (imc < 25) return 'Normal'
-  if (imc < 30) return 'Sobrepeso'
-  return 'Obesidad'
-}
