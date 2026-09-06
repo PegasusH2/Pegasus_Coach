@@ -7,14 +7,15 @@
 //   - Planificación: ejercicios y rutinas (templates) que el entrenador prepara
 //     para el cliente — el entrenador SÍ puede crear/editar/borrar aquí.
 import { useState } from 'react'
-import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronRight, Copy, Dumbbell, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useExercisesCliente, useRoutinesCliente, useTemplateExercises, useTemplatesCliente, useWorkoutsCliente } from '@/hooks/useData'
+import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronRight, Copy, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useExercisesCliente, useRoutinesCliente, useTemplateExercises, useTemplatesCliente } from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
 import * as trackerWriteRepo from '@/lib/supabase/trackerWriteRepo'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { formatFechaCorta } from '@/lib/format'
+import { EjecucionCliente } from './EjecucionCliente'
 import type { TrackerExercise, TrackerRoutine, TrackerTemplate } from '@/types'
 
 /** Botón de borrar con confirmación inline — mismo patrón (sin modal) que ya usa el
@@ -65,60 +66,8 @@ export function EntrenamientoCliente() {
         ))}
       </div>
       <div key={sub} className="tab-fade">
-        {sub === 'ejecucion' ? <EjecucionView /> : <PlanificacionView />}
+        {sub === 'ejecucion' ? <EjecucionCliente /> : <PlanificacionView />}
       </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------
-// Ejecución — SOLO CONSULTA del entrenamiento ya registrado por el cliente
-// (workouts/workout_exercises/sets). Sin crear, editar ni borrar desde Coach.
-// ---------------------------------------------------------------------
-
-function EjecucionView() {
-  const { data: workouts, loading } = useWorkoutsCliente()
-
-  if (loading) return <Card>Cargando…</Card>
-
-  return (
-    <div className="flex flex-col gap-4">
-      {(!workouts || workouts.length === 0) && (
-        <Card>
-          <CardLabel icon={<Dumbbell size={13} />}>Entrenamiento</CardLabel>
-          <p className="text-sm text-text-muted">Este cliente todavía no tiene entrenamientos registrados en Pegasus Tracker.</p>
-        </Card>
-      )}
-
-      {(workouts ?? []).map((w) => (
-        <Card key={w.id}>
-          <div className="mb-3 flex items-center justify-between">
-            <CardLabel icon={<Dumbbell size={13} />}>{w.name || 'Entrenamiento'}</CardLabel>
-            <span className="text-xs text-text-muted">{formatFechaCorta(w.date)}</span>
-          </div>
-          <div className="flex flex-col gap-3">
-            {w.ejercicios.map((ej) => (
-              <div key={ej.id}>
-                <div className="mb-1.5 text-sm font-medium">{ej.exerciseNombre || 'Ejercicio'}</div>
-                <div className="flex flex-col gap-1.5">
-                  {ej.sets.map((s, i) => (
-                    <div key={s.id} className="flex items-center gap-2 rounded-control border border-bg-border bg-bg-panel/60 px-2.5 py-1.5 text-xs text-text-secondary">
-                      <span className="w-4 text-text-muted">{i + 1}</span>
-                      <span>{s.weight ?? '—'} kg</span>
-                      <span className="text-text-muted">×</span>
-                      <span>{s.reps ?? '—'} reps</span>
-                      <span className="text-text-muted">· RIR {s.rir ?? '—'}</span>
-                      <span className="ml-auto">{s.done ? '✓ Hecha' : 'Pendiente'}</span>
-                    </div>
-                  ))}
-                  {ej.sets.length === 0 && <p className="text-xs text-text-muted">Sin series registradas.</p>}
-                </div>
-              </div>
-            ))}
-            {w.ejercicios.length === 0 && <p className="text-xs text-text-muted">Sin ejercicios registrados.</p>}
-          </div>
-        </Card>
-      ))}
     </div>
   )
 }

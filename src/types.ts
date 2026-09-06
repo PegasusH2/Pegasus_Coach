@@ -246,6 +246,8 @@ export interface TrackerWorkout {
   name: string | null
   date: string
   completed: boolean
+  /** Día (template) del que proviene este entrenamiento — null si se registró suelto, sin rutina. */
+  templateId: string | null
 }
 
 export interface TrackerSet {
@@ -263,7 +265,20 @@ export interface TrackerWorkoutExercise {
   workoutId: string
   exerciseId: string
   exerciseNombre: string | null
+  /** Objetivo planificado (workout_exercises.target_*) — null si no se fijó ninguno para esta sesión. */
+  targetRepsMin: number | null
+  targetRepsMax: number | null
+  targetRir: number | null
   sets: TrackerSet[]
+}
+
+/** Una serie histórica de un ejercicio concreto (de cualquier entrenamiento), para comparar
+ * sesiones y calcular PRs — ver src/lib/entrenamientoCalc.ts. */
+export interface TrackerExerciseHistorySet {
+  workoutId: string
+  date: string
+  weight: number | null
+  reps: number | null
 }
 
 // ---------- Escritura del entrenador sobre PLANIFICACIÓN (ejercicios/rutinas,

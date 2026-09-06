@@ -11,7 +11,7 @@ import { getLinkById } from '@/lib/supabase/trainerRepo'
 import { getResumenEntrenador } from '@/lib/supabase/dashboardRepo'
 import { listPaymentsByLink } from '@/lib/supabase/paymentRepo'
 import { listReviewsByClient } from '@/lib/supabase/reviewRepo'
-import { listWorkoutsConSets } from '@/lib/supabase/trackerReadRepo'
+import { listExerciseHistory, listWorkoutHistoryByTemplate, listWorkoutsConSets } from '@/lib/supabase/trackerReadRepo'
 import { listExercises, listRoutines, listTemplateExercises, listTemplates } from '@/lib/supabase/trackerWriteRepo'
 import { listMeasurementTypes, listSkinfoldSites } from '@/lib/supabase/trackerMeasurementRepo'
 
@@ -146,6 +146,24 @@ export function useLinkCliente() {
 export function useWorkoutsCliente() {
   const { targetUserId } = useSession()
   return useAsyncData(() => (targetUserId ? listWorkoutsConSets(targetUserId) : Promise.resolve([])), [targetUserId])
+}
+
+/** Entrenamientos anteriores del MISMO día/rutina — historial de la rutina y comparación de sesión. */
+export function useWorkoutHistoryByTemplate(templateId: string | null) {
+  const { targetUserId } = useSession()
+  return useAsyncData(
+    () => (targetUserId && templateId ? listWorkoutHistoryByTemplate(targetUserId, templateId) : Promise.resolve([])),
+    [targetUserId, templateId],
+  )
+}
+
+/** Histórico de series de un ejercicio concreto (cualquier rutina) — para PR y comparación por ejercicio. */
+export function useExerciseHistory(exerciseId: string | null) {
+  const { targetUserId } = useSession()
+  return useAsyncData(
+    () => (targetUserId && exerciseId ? listExerciseHistory(targetUserId, exerciseId) : Promise.resolve([])),
+    [targetUserId, exerciseId],
+  )
 }
 
 // ---------- Control total del entrenador: ejercicios/rutinas y medidas genéricas de
