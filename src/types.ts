@@ -290,9 +290,26 @@ export interface TrackerTemplate {
   description: string
   /** uuid del entrenador que la creó — null si es una rutina propia del cliente. */
   assignedBy: string | null
+  /** Rutina (TrackerRoutine) a la que pertenece este día — null = todavía sin agrupar. */
+  routineId: string | null
 }
 
 export type TrackerTemplateInput = Omit<TrackerTemplate, 'id'>
+
+// ---------- Rutinas (agrupan varios `templates` = "días") ----------
+// Ver Pegasus_Coach/supabase/migrations/0011_rutinas_planificacion.sql — tabla
+// nueva `template_routines`, aditiva sobre el esquema de Tracker.
+
+export interface TrackerRoutine {
+  id: string
+  userId: string
+  name: string
+  sortOrder: number
+  /** null = activa; con fecha = archivada (dejó de aparecer entre las activas). */
+  archivedAt: string | null
+}
+
+export type TrackerRoutineInput = Omit<TrackerRoutine, 'id' | 'archivedAt'>
 
 export interface TrackerTemplateExercise {
   id: string

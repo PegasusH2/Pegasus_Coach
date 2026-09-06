@@ -12,7 +12,7 @@ import { getResumenEntrenador } from '@/lib/supabase/dashboardRepo'
 import { listPaymentsByLink } from '@/lib/supabase/paymentRepo'
 import { listReviewsByClient } from '@/lib/supabase/reviewRepo'
 import { listWorkoutsConSets } from '@/lib/supabase/trackerReadRepo'
-import { listExercises, listTemplateExercises, listTemplates } from '@/lib/supabase/trackerWriteRepo'
+import { listExercises, listRoutines, listTemplateExercises, listTemplates } from '@/lib/supabase/trackerWriteRepo'
 import { listMeasurementTypes, listSkinfoldSites } from '@/lib/supabase/trackerMeasurementRepo'
 
 /** Hook genérico: llama a fetcher() al montar/cuando cambian deps y expone refetch(). */
@@ -159,6 +159,11 @@ export function useExercisesCliente() {
 export function useTemplatesCliente() {
   const { targetUserId } = useSession()
   return useAsyncData(() => (targetUserId ? listTemplates(targetUserId) : Promise.resolve([])), [targetUserId])
+}
+
+export function useRoutinesCliente() {
+  const { targetUserId } = useSession()
+  return useAsyncData(() => (targetUserId ? listRoutines(targetUserId) : Promise.resolve([])), [targetUserId])
 }
 
 export function useTemplateExercises(templateId: string | null) {
