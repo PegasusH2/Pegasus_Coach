@@ -25,6 +25,7 @@ import { WeightChart } from '@/components/WeightChart'
 import { formatFechaCorta, formatFechaRelativa, formatNumero, hoyIso } from '@/lib/format'
 import { calcularEdad, calcularMacroPlan } from '@/lib/calculos'
 import { rolLabel, sexoLabel } from '@/lib/supabase/profileRepo'
+import { revokeLink } from '@/lib/supabase/trainerRepo'
 import type { FichaTab, ProgresoTab, Route } from '@/lib/nav'
 import type { EstadoRevision } from '@/types'
 
@@ -82,7 +83,7 @@ export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (
       </div>
 
       <div key={tab} className="tab-fade">
-        {tab === 'datos' && <DatosTab />}
+        {tab === 'datos' && <DatosTab onDesvinculado={volver} />}
         {tab === 'macros' && perfilCliente && (
           <div className="flex flex-col gap-4">
             <TipoNutricionCard
@@ -115,7 +116,39 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function DatosTab() {
+function BotonDesvincular({ onConfirm }: { onConfirm: () => Promise<void> }) {
+  const [confirmando, setConfirmando] = useState(false)
+  const [procesando, setProcesando] = useState(false)
+
+  if (confirmando) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-text-muted">¿Seguro? Dejarás de ver el progreso y la planificación de este cliente.</span>
+        <button
+          onClick={async () => {
+            setProcesando(true)
+            await onConfirm()
+          }}
+          disabled={procesando}
+          className="font-semibold text-pegasus-red hover:text-pegasus-redDark disabled:opacity-50"
+        >
+          Sí, desvincular
+        </button>
+        <button onClick={() => setConfirmando(false)} className="text-text-muted hover:text-text-secondary">
+          Cancelar
+        </button>
+      </div>
+    )
+  }
+  return (
+    <button onClick={() => setConfirmando(true)} className="text-xs font-semibold text-pegasus-red hover:text-pegasus-redDark">
+      Desvincular como entrenador
+    </button>
+  )
+}
+
+function DatosTab({ onDesvinculado }: { onDesvinculado: () => void }) {
+  const { clienteActivo } = useSession()
   const { data: perfil } = useTargetProfile()
   const { data: pesos } = useWeightEntries()
   const { data: mediciones } = useMeasurements()
@@ -142,6 +175,12 @@ function DatosTab() {
   // Objetivos calóricos: se reutiliza tal cual el plan de macros activo (si el
   // cliente usa Macros flexibles) — no es un sistema nuevo, solo un resumen.
   const macroCalculado = planActivo && perfil.tipoDieta === 'macros' ? calcularMacroPlan(planActivo) : null
+
+  async function desvincular() {
+    if (!clienteActivo) return
+    await revokeLink(clienteActivo.linkId)
+    onDesvinculado()
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -200,6 +239,9 @@ function DatosTab() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <Stat label="Vinculado desde" value={formatFechaCorta(link.createdAt.slice(0, 10))} />
               <Stat label="Estado" value={link.status === 'accepted' ? 'Activo' : link.status === 'pending' ? 'Pendiente' : 'Revocado'} />
+            </div>
+            <div className="mt-4 border-t border-bg-border pt-3">
+              <BotonDesvincular onConfirm={desvincular} />
             </div>
           </Card>
         )}
