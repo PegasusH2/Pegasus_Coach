@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Download, FileSpreadsheet, Plus } from 'lucide-react'
 import { useAsyncData } from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
-import { changeRole, updateProfile } from '@/lib/supabase/profileRepo'
+import { SEXO_LABELS, changeRole, updateProfile } from '@/lib/supabase/profileRepo'
 import { RolPicker } from '@/components/ui/RolPicker'
 import { TipoNutricionCard } from '@/components/ui/TipoNutricionCard'
-import type { Rol } from '@/types'
+import { calcularEdad } from '@/lib/calculos'
+import type { Rol, Sexo } from '@/types'
 import { createMesociclo, listMesociclos } from '@/lib/supabase/mesocicloRepo'
 import { createMacroPlansBatch } from '@/lib/supabase/macroPlanRepo'
 import {
@@ -29,6 +30,9 @@ function PerfilCard() {
   const [pesoInicial, setPesoInicial] = useState('')
   const [fechaInicio, setFechaInicio] = useState('')
   const [neat, setNeat] = useState('')
+  const [fechaNacimiento, setFechaNacimiento] = useState('')
+  const [altura, setAltura] = useState('')
+  const [sexo, setSexo] = useState<Sexo | ''>('')
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
@@ -37,8 +41,13 @@ function PerfilCard() {
       setPesoInicial(profile.pesoInicial?.toString() ?? '')
       setFechaInicio(profile.fechaInicio ?? '')
       setNeat(profile.neatObjetivoPasos?.toString() ?? '')
+      setFechaNacimiento(profile.fechaNacimiento ?? '')
+      setAltura(profile.altura?.toString() ?? '')
+      setSexo(profile.sexo ?? '')
     }
   }, [profile])
+
+  const edad = calcularEdad(fechaNacimiento || null)
 
   async function guardar() {
     if (!session) return
@@ -49,6 +58,9 @@ function PerfilCard() {
         pesoInicial: pesoInicial ? Number(pesoInicial) : null,
         fechaInicio: fechaInicio || null,
         neatObjetivoPasos: neat ? Number(neat) : null,
+        fechaNacimiento: fechaNacimiento || null,
+        altura: altura ? Number(altura) : null,
+        sexo: sexo || null,
       })
       await refreshProfile()
     } finally {
@@ -61,6 +73,29 @@ function PerfilCard() {
       <CardLabel>Perfil</CardLabel>
       <div className="grid grid-cols-4 gap-3">
         <Field label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+        <Field
+          label="Fecha de nacimiento"
+          type="date"
+          suffix={edad != null ? `${edad} años` : undefined}
+          value={fechaNacimiento}
+          onChange={(e) => setFechaNacimiento(e.target.value)}
+        />
+        <Field label="Altura" type="number" suffix="cm" value={altura} onChange={(e) => setAltura(e.target.value)} />
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-text-secondary">Sexo</span>
+          <select
+            value={sexo}
+            onChange={(e) => setSexo(e.target.value as Sexo | '')}
+            className="rounded-control border border-bg-border bg-bg-panel px-3 py-2 text-sm text-text-primary outline-none focus:border-pegasus-red"
+          >
+            <option value="">—</option>
+            {(Object.entries(SEXO_LABELS) as [Sexo, string][]).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
         <Field label="Peso inicial" type="number" suffix="kg" value={pesoInicial} onChange={(e) => setPesoInicial(e.target.value)} />
         <Field label="Fecha inicio" type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} />
         <Field label="NEAT objetivo" type="number" suffix="pasos" value={neat} onChange={(e) => setNeat(e.target.value)} />

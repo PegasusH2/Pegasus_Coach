@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { ArrowLeft, Check } from 'lucide-react'
-import { useReviewsCliente, usePaymentsCliente, useTargetProfile, useWeightEntries } from '@/hooks/useData'
+import {
+  useActiveMacroPlan,
+  useLinkCliente,
+  useMeasurements,
+  usePaymentsCliente,
+  useReviewsCliente,
+  useTargetProfile,
+  useWeightEntries,
+} from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
 import { createReview, updateReviewEstado } from '@/lib/supabase/reviewRepo'
 import { createPayment } from '@/lib/supabase/paymentRepo'
@@ -13,8 +21,10 @@ import { Macros } from './Macros'
 import { Peso } from './Peso'
 import { Progreso } from './Progreso'
 import { EntrenamientoCliente } from './EntrenamientoCliente'
+import { WeightChart } from '@/components/WeightChart'
 import { formatFechaCorta, formatFechaRelativa, formatNumero, hoyIso } from '@/lib/format'
-import { rolLabel } from '@/lib/supabase/profileRepo'
+import { calcularEdad, calcularIMC, calcularMacroPlan, clasificacionIMC } from '@/lib/calculos'
+import { rolLabel, sexoLabel } from '@/lib/supabase/profileRepo'
 import type { FichaTab, ProgresoTab, Route } from '@/lib/nav'
 import type { EstadoRevision } from '@/types'
 
@@ -96,37 +106,113 @@ export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (
   )
 }
 
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-xs text-text-muted">{label}</div>
+      <div className="font-medium">{value}</div>
+    </div>
+  )
+}
+
 function DatosTab() {
   const { data: perfil } = useTargetProfile()
   const { data: pesos } = useWeightEntries()
+  const { data: mediciones } = useMeasurements()
+  const { data: planActivo } = useActiveMacroPlan()
+  const { data: link } = useLinkCliente()
   if (!perfil) return <Card>Cargando…</Card>
 
   // perfil.pesoInicial/fechaInicio son un valor declarado a mano (Ajustes >
   // Perfil) que casi nunca rellena un cliente que solo usa Tracker — si no
   // están, se usa el primer registro real de peso (mismo dato que ya
   // muestra la pestaña Peso como "Inicial") en vez de dejarlo en blanco.
-  const primerPeso = pesos && pesos.length > 0 ? [...pesos].sort((a, b) => a.fecha.localeCompare(b.fecha))[0] : null
+  const ordenPesos = pesos && pesos.length > 0 ? [...pesos].sort((a, b) => a.fecha.localeCompare(b.fecha)) : []
+  const primerPeso = ordenPesos[0] ?? null
+  const ultimoPeso = ordenPesos[ordenPesos.length - 1] ?? null
   const pesoInicial = perfil.pesoInicial ?? primerPeso?.pesoKg ?? null
   const fechaInicio = perfil.fechaInicio ?? primerPeso?.fecha ?? null
+  const pesoActual = ultimoPeso?.pesoKg ?? pesoInicial
+
+  const ultimaMedicion =
+    mediciones && mediciones.length > 0 ? [...mediciones].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] : null
+
+  const edad = calcularEdad(perfil.fechaNacimiento)
+  const imc = calcularIMC(pesoActual, perfil.altura)
+
+  // Objetivos calóricos: se reutiliza tal cual el plan de macros activo (si el
+  // cliente usa Macros flexibles) — no es un sistema nuevo, solo un resumen.
+  const macroCalculado = planActivo && perfil.tipoDieta === 'macros' ? calcularMacroPlan(planActivo) : null
 
   return (
-    <Card>
-      <CardLabel>Datos básicos</CardLabel>
-      <div className="grid grid-cols-3 gap-4 text-sm">
-        <div>
-          <div className="text-xs text-text-muted">Tipo de cuenta</div>
-          <div className="font-medium">{rolLabel(perfil.role)}</div>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <div className="grid grid-cols-4 gap-4 text-sm">
+          <Stat label="Peso actual" value={pesoActual != null ? `${formatNumero(pesoActual, 1)} kg` : '—'} />
+          <Stat label="Altura" value={perfil.altura != null ? `${formatNumero(perfil.altura, 0)} cm` : '—'} />
+          <Stat label="IMC" value={imc != null ? `${formatNumero(imc, 1)} · ${clasificacionIMC(imc)}` : '—'} />
+          <Stat
+            label="% graso"
+            value={ultimaMedicion?.porcentajeGraso != null ? `${formatNumero(ultimaMedicion.porcentajeGraso, 1)} %` : '—'}
+          />
         </div>
-        <div>
-          <div className="text-xs text-text-muted">Peso inicial</div>
-          <div className="font-medium">{formatNumero(pesoInicial, 1)} kg</div>
-        </div>
-        <div>
-          <div className="text-xs text-text-muted">Fecha inicio</div>
-          <div className="font-medium">{fechaInicio ? formatFechaCorta(fechaInicio) : '—'}</div>
-        </div>
+      </Card>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardLabel>Información personal</CardLabel>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <Stat label="Nombre" value={perfil.nombre} />
+            <Stat label="Tipo de cuenta" value={rolLabel(perfil.role)} />
+            <Stat label="Edad" value={edad != null ? `${edad} años` : '—'} />
+            <Stat label="Sexo" value={sexoLabel(perfil.sexo) ?? '—'} />
+            <Stat label="Email" value={perfil.email ?? '—'} />
+            <Stat label="Cliente desde" value={fechaInicio ? formatFechaCorta(fechaInicio) : '—'} />
+          </div>
+        </Card>
+
+        <Card>
+          <CardLabel>Datos físicos</CardLabel>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <Stat label="Peso inicial" value={pesoInicial != null ? `${formatNumero(pesoInicial, 1)} kg` : '—'} />
+            <Stat label="Peso actual" value={pesoActual != null ? `${formatNumero(pesoActual, 1)} kg` : '—'} />
+            <Stat label="IMC" value={imc != null ? formatNumero(imc, 1) : '—'} />
+            <Stat label="Última medición" value={ultimaMedicion ? formatFechaCorta(ultimaMedicion.fecha) : '—'} />
+          </div>
+        </Card>
       </div>
-    </Card>
+
+      <div className="grid grid-cols-2 gap-4">
+        {macroCalculado && (
+          <Card>
+            <CardLabel>Objetivos calóricos</CardLabel>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <Stat label="Normocalórico" value={`${formatNumero(planActivo!.normocalorico, 0)} kcal`} />
+              <Stat label="Promedio actual" value={`${formatNumero(macroCalculado.promedioCalorias, 0)} kcal`} />
+              <Stat
+                label="Superávit/Déficit"
+                value={`${macroCalculado.superavitDeficit >= 0 ? '+' : ''}${formatNumero(macroCalculado.superavitDeficit, 0)} kcal`}
+              />
+            </div>
+          </Card>
+        )}
+
+        {link && (
+          <Card>
+            <CardLabel>Entrenador</CardLabel>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <Stat label="Vinculado desde" value={formatFechaCorta(link.createdAt.slice(0, 10))} />
+              <Stat label="Estado" value={link.status === 'accepted' ? 'Activo' : link.status === 'pending' ? 'Pendiente' : 'Revocado'} />
+            </div>
+          </Card>
+        )}
+      </div>
+
+      <Card>
+        <CardLabel>Evolución del peso</CardLabel>
+        <WeightChart entries={pesos ?? []} height={200} />
+      </Card>
+    </div>
   )
 }
 

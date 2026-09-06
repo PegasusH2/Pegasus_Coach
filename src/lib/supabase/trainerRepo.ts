@@ -78,6 +78,15 @@ export async function respondToRequest(linkId: string, accept: boolean): Promise
   if (error) throw new Error(`Error al responder: ${error.message}`)
 }
 
+/** Un vínculo concreto por id (p.ej. para mostrar "vinculado desde" en la ficha de un cliente). */
+export async function getLinkById(linkId: string): Promise<TrainerClientLink | null> {
+  const { data, error } = await supabase.from(TABLE).select('*').eq('id', linkId).maybeSingle()
+  if (error) throw new Error(`Error al leer el vínculo: ${error.message}`)
+  if (!data) return null
+  const [link] = await withNombres([data], 'trainerId')
+  return link
+}
+
 export async function revokeLink(linkId: string): Promise<void> {
   const { error } = await supabase
     .from(TABLE)

@@ -87,3 +87,32 @@ export function cambioEnPeriodo(pesos: { fecha: string; pesoKg: number }[], dias
   const referencia = candidatos[candidatos.length - 1]
   return actual.pesoKg - referencia.pesoKg
 }
+
+/** Edad en años cumplidos a partir de la fecha de nacimiento (ISO 'YYYY-MM-DD'). Nunca se almacena, siempre se calcula. */
+export function calcularEdad(fechaNacimiento: string | null): number | null {
+  if (!fechaNacimiento) return null
+  const hoy = new Date()
+  const nacimiento = new Date(fechaNacimiento + 'T00:00:00')
+  let edad = hoy.getFullYear() - nacimiento.getFullYear()
+  const noHaCumplidoEsteAno =
+    hoy.getMonth() < nacimiento.getMonth() ||
+    (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() < nacimiento.getDate())
+  if (noHaCumplidoEsteAno) edad -= 1
+  return edad
+}
+
+/** IMC = peso(kg) / altura(m)^2. null si falta cualquiera de los dos datos. */
+export function calcularIMC(pesoKg: number | null, alturaCm: number | null): number | null {
+  if (pesoKg == null || alturaCm == null || alturaCm <= 0) return null
+  const alturaM = alturaCm / 100
+  return pesoKg / (alturaM * alturaM)
+}
+
+/** Clasificación estándar OMS del IMC. */
+export function clasificacionIMC(imc: number | null): string | null {
+  if (imc == null) return null
+  if (imc < 18.5) return 'Bajo peso'
+  if (imc < 25) return 'Normal'
+  if (imc < 30) return 'Sobrepeso'
+  return 'Obesidad'
+}

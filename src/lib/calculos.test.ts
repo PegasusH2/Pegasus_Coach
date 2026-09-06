@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { calcularMacroPlan, calorias, porKg } from './calculos'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { calcularEdad, calcularIMC, calcularMacroPlan, calorias, clasificacionIMC, porKg } from './calculos'
 import type { MacroPlan } from '@/types'
 
 function basePlan(overrides: Partial<MacroPlan>): MacroPlan {
@@ -99,4 +99,46 @@ describe('calcularMacroPlan — fila 11 del Excel (segundo vector de verificaci�
   it('proteinaOffPorKg = 2.147727273 (W11)', () => expect(c.proteinaOffPorKg).toBeCloseTo(2.147727273, 6))
   it('hidratosOffPorKg = 3.125 (Y11)', () => expect(c.hidratosOffPorKg).toBeCloseTo(3.125, 6))
   it('grasasOffPorKg = 0.5681818182 (AA11)', () => expect(c.grasasOffPorKg).toBeCloseTo(0.5681818182, 6))
+})
+
+describe('calcularEdad', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-06T12:00:00'))
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('devuelve null si no hay fecha de nacimiento', () => {
+    expect(calcularEdad(null)).toBeNull()
+  })
+  it('cumpleaños ya pasado este año', () => {
+    expect(calcularEdad('1990-01-15')).toBe(36)
+  })
+  it('cumpleaños todavía no llega este año', () => {
+    expect(calcularEdad('1990-12-25')).toBe(35)
+  })
+  it('cumpleaños es hoy', () => {
+    expect(calcularEdad('2000-09-06')).toBe(26)
+  })
+})
+
+describe('calcularIMC / clasificacionIMC', () => {
+  it('null si falta peso o altura', () => {
+    expect(calcularIMC(null, 180)).toBeNull()
+    expect(calcularIMC(80, null)).toBeNull()
+    expect(calcularIMC(80, 0)).toBeNull()
+  })
+  it('80kg / 180cm -> 24.69 (Normal)', () => {
+    const imc = calcularIMC(80, 180)
+    expect(imc).toBeCloseTo(24.691358, 5)
+    expect(clasificacionIMC(imc)).toBe('Normal')
+  })
+  it('clasifica bajo peso, sobrepeso y obesidad', () => {
+    expect(clasificacionIMC(17)).toBe('Bajo peso')
+    expect(clasificacionIMC(27)).toBe('Sobrepeso')
+    expect(clasificacionIMC(32)).toBe('Obesidad')
+  })
+  it('clasificacionIMC(null) es null', () => {
+    expect(clasificacionIMC(null)).toBeNull()
+  })
 })

@@ -1,5 +1,5 @@
 import { supabase } from './client'
-import type { Profile, Rol } from '@/types'
+import type { Profile, Rol, Sexo } from '@/types'
 
 export async function getProfile(userId: string): Promise<Profile | undefined> {
   const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
@@ -44,4 +44,15 @@ export async function findProfileIdByEmail(email: string): Promise<string | unde
 
 export function rolLabel(rol: Rol): string {
   return rol === 'entrenador' ? 'Entrenador' : 'Personal'
+}
+
+export const SEXO_LABELS: Record<Sexo, string> = {
+  mujer: 'Mujer',
+  hombre: 'Hombre',
+  otro: 'Otro',
+  prefiero_no_decir: 'Prefiero no decirlo',
+}
+
+export function sexoLabel(sexo: Sexo | null): string | null {
+  return sexo ? SEXO_LABELS[sexo] : null
 }

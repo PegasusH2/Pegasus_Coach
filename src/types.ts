@@ -3,6 +3,7 @@
 
 export type Rol = 'personal' | 'entrenador'
 export type TipoDieta = 'macros' | 'cerrada'
+export type Sexo = 'mujer' | 'hombre' | 'otro' | 'prefiero_no_decir'
 
 export interface Profile {
   id: string
@@ -14,6 +15,9 @@ export interface Profile {
   neatObjetivoPasos: number | null
   tipoDieta: TipoDieta
   dietaCerradaDistingueDias: boolean
+  fechaNacimiento: string | null
+  altura: number | null
+  sexo: Sexo | null
 }
 
 export type ProfileInput = Omit<Profile, 'id'>

@@ -7,6 +7,7 @@ import { listMesociclos } from '@/lib/supabase/mesocicloRepo'
 import { getActiveClosedDietPlan, listClosedDietItems, listClosedDietPlans, listScheduledClosedDietPlans } from '@/lib/supabase/closedDietRepo'
 import { listDietTemplates } from '@/lib/supabase/dietTemplateRepo'
 import { getProfile } from '@/lib/supabase/profileRepo'
+import { getLinkById } from '@/lib/supabase/trainerRepo'
 import { getResumenEntrenador } from '@/lib/supabase/dashboardRepo'
 import { listPaymentsByLink } from '@/lib/supabase/paymentRepo'
 import { listReviewsByClient } from '@/lib/supabase/reviewRepo'
@@ -133,6 +134,13 @@ export function useReviewsCliente() {
 
 export function usePaymentsCliente(linkId: string | null) {
   return useAsyncData(() => (linkId ? listPaymentsByLink(linkId) : Promise.resolve([])), [linkId])
+}
+
+/** El vínculo entrenador-cliente que se está viendo en la ficha (fecha de vinculación, estado). */
+export function useLinkCliente() {
+  const { clienteActivo } = useSession()
+  const linkId = clienteActivo?.linkId ?? null
+  return useAsyncData(() => (linkId ? getLinkById(linkId) : Promise.resolve(null)), [linkId])
 }
 
 export function useWorkoutsCliente() {
