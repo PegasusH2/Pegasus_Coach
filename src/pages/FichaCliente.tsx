@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ArrowLeft, Check } from 'lucide-react'
-import { useReviewsCliente, usePaymentsCliente, useTargetProfile } from '@/hooks/useData'
+import { useReviewsCliente, usePaymentsCliente, useTargetProfile, useWeightEntries } from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
 import { createReview, updateReviewEstado } from '@/lib/supabase/reviewRepo'
 import { createPayment } from '@/lib/supabase/paymentRepo'
@@ -98,26 +98,32 @@ export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (
 
 function DatosTab() {
   const { data: perfil } = useTargetProfile()
+  const { data: pesos } = useWeightEntries()
   if (!perfil) return <Card>Cargando…</Card>
+
+  // perfil.pesoInicial/fechaInicio son un valor declarado a mano (Ajustes >
+  // Perfil) que casi nunca rellena un cliente que solo usa Tracker — si no
+  // están, se usa el primer registro real de peso (mismo dato que ya
+  // muestra la pestaña Peso como "Inicial") en vez de dejarlo en blanco.
+  const primerPeso = pesos && pesos.length > 0 ? [...pesos].sort((a, b) => a.fecha.localeCompare(b.fecha))[0] : null
+  const pesoInicial = perfil.pesoInicial ?? primerPeso?.pesoKg ?? null
+  const fechaInicio = perfil.fechaInicio ?? primerPeso?.fecha ?? null
+
   return (
     <Card>
       <CardLabel>Datos básicos</CardLabel>
-      <div className="grid grid-cols-4 gap-4 text-sm">
+      <div className="grid grid-cols-3 gap-4 text-sm">
         <div>
           <div className="text-xs text-text-muted">Tipo de cuenta</div>
           <div className="font-medium">{rolLabel(perfil.role)}</div>
         </div>
         <div>
           <div className="text-xs text-text-muted">Peso inicial</div>
-          <div className="font-medium">{formatNumero(perfil.pesoInicial, 1)} kg</div>
+          <div className="font-medium">{formatNumero(pesoInicial, 1)} kg</div>
         </div>
         <div>
           <div className="text-xs text-text-muted">Fecha inicio</div>
-          <div className="font-medium">{perfil.fechaInicio ? formatFechaCorta(perfil.fechaInicio) : '—'}</div>
-        </div>
-        <div>
-          <div className="text-xs text-text-muted">NEAT objetivo</div>
-          <div className="font-medium">{formatNumero(perfil.neatObjetivoPasos, 0)} pasos</div>
+          <div className="font-medium">{fechaInicio ? formatFechaCorta(fechaInicio) : '—'}</div>
         </div>
       </div>
     </Card>
