@@ -15,6 +15,28 @@ export async function requestAccess(trainerId: string, clientEmail: string): Pro
   if (!clientId) throw new Error('No existe ninguna Cuenta Pegasus con ese email')
   if (clientId === trainerId) throw new Error('No puedes solicitarte acceso a ti mismo')
 
+  // trainer_client_links tiene unique(trainerId, clientId) y revokeLink nunca borra
+  // la fila (solo status='revoked') — un vínculo ya revocado antes se REABRE con un
+  // update en vez de intentar un insert que siempre chocaría con esa fila. Ver
+  // supabase/migrations/0012_reabrir_solicitud_revocada.sql para el porqué hace
+  // falta esa migración (RLS solo dejaba al entrenador escribir 'revoked').
+  const { data: existente, error: readError } = await supabase
+    .from(TABLE)
+    .select('id, status')
+    .eq('trainerId', trainerId)
+    .eq('clientId', clientId)
+    .maybeSingle()
+  if (readError) throw new Error(`Error al comprobar el vínculo: ${readError.message}`)
+
+  if (existente?.status === 'revoked') {
+    const { error } = await supabase
+      .from(TABLE)
+      .update({ status: 'pending' satisfies LinkStatus, clientEmailAtInvite: email, respondedAt: null })
+      .eq('id', existente.id)
+    if (error) throw new Error(`Error al solicitar acceso: ${error.message}`)
+    return
+  }
+
   const { error } = await supabase
     .from(TABLE)
     .insert({ trainerId, clientId, status: 'pending' satisfies LinkStatus, clientEmailAtInvite: email })
