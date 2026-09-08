@@ -109,6 +109,18 @@ export async function getLinkById(linkId: string): Promise<TrainerClientLink | n
   return link
 }
 
+/** Override de precio/intervalo de revisión para ESTE cliente — null = usa el valor
+ * global de trainer_settings. Ver 0015_centro_configuracion_entrenador.sql: solo puede
+ * tocar estas 2 columnas de un vínculo ya aceptado, sin cambiar su estado (el trigger
+ * `trainer_client_links_overrides_guard` lo hace cumplir). */
+export async function updateLinkOverrides(
+  linkId: string,
+  overrides: { reviewIntervalDaysOverride?: number | null; standardPriceOverride?: number | null },
+): Promise<void> {
+  const { error } = await supabase.from(TABLE).update(overrides).eq('id', linkId)
+  if (error) throw new Error(`Error al guardar el override del cliente: ${error.message}`)
+}
+
 export async function revokeLink(linkId: string): Promise<void> {
   const { error } = await supabase
     .from(TABLE)

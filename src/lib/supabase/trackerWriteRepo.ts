@@ -18,6 +18,7 @@
 import { supabase } from './client'
 import { cleanNonNegativeInt, requireNonEmptyString } from './trackerValidate'
 import type {
+  ExerciseCatalogItem,
   TrackerExercise,
   TrackerExerciseInput,
   TrackerRoutine,
@@ -42,19 +43,28 @@ interface ExerciseRow {
   id: string
   user_id: string
   name: string
-  muscle_group: string | null
   notes: string | null
   archived: boolean
+  catalog_id: string | null
 }
 
+const EXERCISE_COLUMNS = 'id, user_id, name, notes, archived, catalog_id'
+
 function fromExerciseRow(r: ExerciseRow): TrackerExercise {
-  return { id: r.id, userId: r.user_id, name: r.name, muscleGroup: r.muscle_group ?? '', notes: r.notes ?? '', archived: r.archived }
+  return {
+    id: r.id,
+    userId: r.user_id,
+    name: r.name,
+    notes: r.notes ?? '',
+    archived: r.archived,
+    catalogId: r.catalog_id,
+  }
 }
 
 export async function listExercises(userId: string): Promise<TrackerExercise[]> {
   const { data, error } = await supabase
     .from('exercises')
-    .select('id, user_id, name, muscle_group, notes, archived')
+    .select(EXERCISE_COLUMNS)
     .eq('user_id', userId)
     .is('deleted_at', null)
     .order('name', { ascending: true })
@@ -70,14 +80,26 @@ export async function createExercise(userId: string, input: TrackerExerciseInput
       id: crypto.randomUUID(),
       user_id: userId,
       name,
-      muscle_group: input.muscleGroup ?? '',
       notes: input.notes ?? '',
       archived: false,
+      catalog_id: input.catalogId ?? null,
     })
-    .select('id, user_id, name, muscle_group, notes, archived')
+    .select(EXERCISE_COLUMNS)
     .single()
   if (error) fail('Error al crear', 'exercises', error)
   return fromExerciseRow(data as ExerciseRow)
+}
+
+/** Crea un ejercicio propio del cliente a partir de una ficha del catálogo global — mismo
+ * flujo que `createExercise`, solo que precargado (nombre) en vez de en blanco. */
+export async function createExerciseFromCatalog(userId: string, item: ExerciseCatalogItem): Promise<TrackerExercise> {
+  return createExercise(userId, {
+    userId,
+    name: item.name,
+    notes: '',
+    archived: false,
+    catalogId: item.id,
+  })
 }
 
 export async function deleteExercise(id: string): Promise<void> {

@@ -16,12 +16,11 @@ import {
   TrendingUp,
   ShieldCheck,
 } from 'lucide-react'
-import { signIn, signUp, sendPasswordReset, updatePassword, authErrorMessage, type Rol } from '@/lib/supabase/auth'
+import { signIn, signUp, sendPasswordReset, updatePassword, authErrorMessage } from '@/lib/supabase/auth'
 import { createProfile } from '@/lib/supabase/profileRepo'
 import { useSession } from '@/lib/SessionContext'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
-import { RolPicker } from '@/components/ui/RolPicker'
 
 /** Textura de grano muy sutil, generada inline (SVG feTurbulence), sin ningún asset
  * descargado — solo unos cientos de bytes de data URI. */
@@ -245,7 +244,6 @@ export function Auth() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [nombre, setNombre] = useState('')
-  const [rol, setRol] = useState<Rol>('personal')
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
@@ -270,7 +268,10 @@ export function Auth() {
       if (modo === 'entrar') {
         await signIn(email, password)
       } else {
-        await signUp(email, password, rol, nombre)
+        // Pegasus Coach es solo para entrenadores — no se ofrece elegir "Personal"
+        // en ningún alta hecha a través de Coach (ver Ajustes.tsx para el resto
+        // del alcance de esta decisión).
+        await signUp(email, password, 'entrenador', nombre)
       }
     } catch (err) {
       const msg = authErrorMessage(err)
@@ -397,16 +398,13 @@ export function Auth() {
                   </InfoNote>
 
                   {modo === 'registro' && (
-                    <>
-                      <AuthField
-                        label="Nombre"
-                        icon={UserRound}
-                        autoComplete="name"
-                        value={nombre}
-                        onChange={(e) => setNombre(e.target.value)}
-                      />
-                      <RolPicker value={rol} onChange={setRol} />
-                    </>
+                    <AuthField
+                      label="Nombre"
+                      icon={UserRound}
+                      autoComplete="name"
+                      value={nombre}
+                      onChange={(e) => setNombre(e.target.value)}
+                    />
                   )}
 
                   <AuthField
@@ -484,7 +482,6 @@ export function Auth() {
 export function CompletarPerfil() {
   const { session, refreshProfile } = useSession()
   const [nombre, setNombre] = useState('')
-  const [rol, setRol] = useState<Rol>('personal')
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -493,7 +490,10 @@ export function CompletarPerfil() {
     setCargando(true)
     setError(null)
     try {
-      await createProfile(session.user.id, rol, nombre, session.user.email ?? null)
+      // Pegasus Coach es solo para entrenadores — no se ofrece elegir "Personal"
+      // en ningún alta hecha a través de Coach (ver Ajustes.tsx para el resto
+      // del alcance de esta decisión).
+      await createProfile(session.user.id, 'entrenador', nombre, session.user.email ?? null)
       await refreshProfile()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar el perfil')
@@ -510,7 +510,6 @@ export function CompletarPerfil() {
           termina de configurarla.
         </p>
         <Field label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-        <RolPicker value={rol} onChange={setRol} />
         {error && <p className="text-sm text-pegasus-red">{error}</p>}
         <Button onClick={completar} disabled={cargando || !nombre}>
           Continuar

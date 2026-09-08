@@ -1,3 +1,4 @@
+import { ClipboardCheck, Dumbbell } from 'lucide-react'
 import { useAsyncData } from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
 import { listReviewsByTrainer } from '@/lib/supabase/reviewRepo'
@@ -18,6 +19,7 @@ export function Revisiones() {
           <thead>
             <tr className="border-b border-bg-border text-left text-xs uppercase tracking-wide text-text-secondary">
               <th className="px-5 py-3 font-medium">Cliente</th>
+              <th className="px-3 py-3 font-medium">Tipo</th>
               <th className="px-3 py-3 font-medium">Fecha programada</th>
               <th className="px-3 py-3 font-medium">Estado</th>
               <th className="px-3 py-3 font-medium">Recepción</th>
@@ -27,6 +29,12 @@ export function Revisiones() {
             {(revisiones ?? []).map((r) => (
               <tr key={r.id} className="border-b border-bg-border last:border-0">
                 <td className="px-5 py-3 font-medium">{r.clienteNombre || 'Cliente'}</td>
+                <td className="px-3 py-3 text-text-secondary">
+                  <span className="flex items-center gap-1.5">
+                    {r.tipo === 'entreno' ? <Dumbbell size={13} /> : <ClipboardCheck size={13} />}
+                    {r.tipo === 'entreno' ? 'Entreno' : 'Revisión'}
+                  </span>
+                </td>
                 <td className="px-3 py-3 text-text-secondary">
                   {formatFechaCorta(r.fechaProgramada)} <span className="text-text-muted">({formatFechaRelativa(r.fechaProgramada)})</span>
                 </td>
@@ -48,7 +56,7 @@ export function Revisiones() {
             ))}
             {(revisiones ?? []).length === 0 && (
               <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-text-muted">
+                <td colSpan={5} className="px-5 py-8 text-center text-text-muted">
                   Todavía no hay revisiones.
                 </td>
               </tr>

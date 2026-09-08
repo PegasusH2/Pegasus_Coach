@@ -76,7 +76,7 @@ async function getClienteBase(linkId: string, clientId: string, nombre: string, 
   }
 }
 
-export async function getResumenEntrenador(trainerId: string): Promise<ResumenEntrenador> {
+export async function getResumenEntrenador(trainerId: string, inactivityDays = 7): Promise<ResumenEntrenador> {
   const links = await listAsTrainer(trainerId)
   const aceptados = links.filter((l) => l.status === 'accepted')
 
@@ -103,8 +103,8 @@ export async function getResumenEntrenador(trainerId: string): Promise<ResumenEn
     proximaRevision: proximaPendientePorCliente.get(c.clientId) ?? null,
   }))
 
-  const hace7dias = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
-  const clientesActivos = clientes.filter((c) => c.ultimaActividad !== null && c.ultimaActividad >= hace7dias).length
+  const desdeInactividad = new Date(Date.now() - inactivityDays * 86400000).toISOString().slice(0, 10)
+  const clientesActivos = clientes.filter((c) => c.ultimaActividad !== null && c.ultimaActividad >= desdeInactividad).length
 
   const clientesPendientes = clientes.filter((c) => c.pago?.status === 'pending')
   const totalPendiente = clientesPendientes.reduce((sum, c) => sum + (c.pago?.amount ?? 0), 0)

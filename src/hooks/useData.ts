@@ -117,9 +117,13 @@ export function useTargetProfile() {
 // ---------- Centro de control del entrenador (siempre sobre la propia cuenta, el entrenador). ----------
 
 export function useResumenEntrenador() {
-  const { session } = useSession()
+  const { session, trainerSettings } = useSession()
   const trainerId = session?.user.id ?? null
-  return useAsyncData(() => (trainerId ? getResumenEntrenador(trainerId) : Promise.resolve(undefined)), [trainerId])
+  const inactivityDays = trainerSettings?.inactivityDays ?? 7
+  return useAsyncData(
+    () => (trainerId ? getResumenEntrenador(trainerId, inactivityDays) : Promise.resolve(undefined)),
+    [trainerId, inactivityDays],
+  )
 }
 
 /** Revisiones y pagos de un cliente concreto — se usan dentro de su ficha, siempre con targetUserId. */

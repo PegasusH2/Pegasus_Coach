@@ -167,27 +167,33 @@ function Sparkline({ pesos }: { pesos: ClienteResumen['pesos'] }) {
  * prioridad, todo con datos ya existentes (nada inventado):
  *   1. Requiere revisión: tiene una revisión pendiente ya vencida.
  *   2. En atención: tiene un pago pendiente (señal real de "hay que hablar con él").
- *   3. Activo: registró actividad (nutrición o entreno) en los últimos 7 días.
- *   4. Sin actividad: ninguna de las anteriores. */
-type EstadoCliente = 'requiere-revision' | 'en-atencion' | 'activo' | 'sin-actividad'
+ *   3. Activo: registró actividad (nutrición o entreno) dentro de `inactivityDays`
+ *      (trainer_settings, configurable en Ajustes → Parámetros del servicio).
+ *   4. Sin actividad: entre `inactivityDays` y `prolongedInactivityDays`.
+ *   5. Sin actividad prolongada: más allá de `prolongedInactivityDays`. */
+type EstadoCliente = 'requiere-revision' | 'en-atencion' | 'activo' | 'sin-actividad' | 'sin-actividad-prolongada'
 
-function estadoDeCliente(c: ClienteResumen, hoy: string, hace7dias: string): EstadoCliente {
+function estadoDeCliente(c: ClienteResumen, hoy: string, umbralActivo: string, umbralProlongado: string): EstadoCliente {
   if (c.proximaRevision && c.proximaRevision.fechaProgramada < hoy) return 'requiere-revision'
   if (c.pago?.status === 'pending') return 'en-atencion'
-  if (c.ultimaActividad !== null && c.ultimaActividad >= hace7dias) return 'activo'
-  return 'sin-actividad'
+  if (c.ultimaActividad !== null && c.ultimaActividad >= umbralActivo) return 'activo'
+  if (c.ultimaActividad !== null && c.ultimaActividad >= umbralProlongado) return 'sin-actividad'
+  return 'sin-actividad-prolongada'
 }
 
 function DashboardEntrenador({ onNavigate }: { onNavigate: (r: Route) => void }) {
-  const { session, profile, setClienteActivo } = useSession()
+  const { session, profile, setClienteActivo, trainerSettings } = useSession()
   const { data: resumen } = useResumenEntrenador()
   const [busqueda, setBusqueda] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('todos')
   const [pagina, setPagina] = useState(1)
   const porPagina = 5
+  const inactivityDays = trainerSettings?.inactivityDays ?? 7
+  const prolongedInactivityDays = trainerSettings?.prolongedInactivityDays ?? 30
 
   const hoy = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
   const hoyIso = new Date().toISOString().slice(0, 10)
+  const umbralActivo = new Date(Date.now() - inactivityDays * 86400000).toISOString().slice(0, 10)
 
   const clientes = resumen?.clientes ?? []
 
@@ -200,13 +206,13 @@ function DashboardEntrenador({ onNavigate }: { onNavigate: (r: Route) => void })
     const q = busqueda.trim().toLowerCase()
     return clientes.filter((c) => {
       if (q && !c.nombre.toLowerCase().includes(q) && !(c.email ?? '').toLowerCase().includes(q)) return false
-      if (filtro === 'activos') return c.ultimaActividad !== null && c.ultimaActividad >= sieteDiasAtras()
+      if (filtro === 'activos') return c.ultimaActividad !== null && c.ultimaActividad >= umbralActivo
       if (filtro === 'proxima-revision') return c.proximaRevision !== null && c.proximaRevision.fechaProgramada >= hoyIso
       if (filtro === 'pendiente-revision') return c.proximaRevision !== null && c.proximaRevision.fechaProgramada < hoyIso
       if (filtro === 'pago-pendiente') return c.pago?.status === 'pending'
       return true
     })
-  }, [clientes, busqueda, filtro, hoyIso])
+  }, [clientes, busqueda, filtro, hoyIso, umbralActivo])
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / porPagina))
   const visibles = filtrados.slice((pagina - 1) * porPagina, pagina * porPagina)
@@ -218,7 +224,7 @@ function DashboardEntrenador({ onNavigate }: { onNavigate: (r: Route) => void })
 
   // Recuentos reales para el panel de Atención — mismos campos que ya usa la tabla.
   const entrenadosEstaSemana = clientes.filter(
-    (c) => c.ultimaActividadOrigen === 'tracker' && c.ultimaActividad !== null && c.ultimaActividad >= sieteDiasAtras(),
+    (c) => c.ultimaActividadOrigen === 'tracker' && c.ultimaActividad !== null && c.ultimaActividad >= umbralActivo,
   ).length
 
   return (
@@ -435,8 +441,14 @@ function DashboardEntrenador({ onNavigate }: { onNavigate: (r: Route) => void })
             onFiltrar={irAClientes}
             onVerTodas={() => onNavigate({ section: 'revisiones' })}
           />
-          <PanelProximamente revisiones={resumen?.proximasRevisiones ?? []} onVerAgenda={() => onNavigate({ section: 'revisiones' })} onProgramar={() => onNavigate({ section: 'clientes' })} />
-          <PanelEstadoClientes clientes={clientes} hoyIso={hoyIso} onFiltrar={irAClientes} />
+          <PanelProximamente revisiones={resumen?.proximasRevisiones ?? []} onVerAgenda={() => onNavigate({ section: 'calendario' })} onProgramar={() => onNavigate({ section: 'calendario' })} />
+          <PanelEstadoClientes
+            clientes={clientes}
+            hoyIso={hoyIso}
+            umbralActivo={umbralActivo}
+            umbralProlongado={new Date(Date.now() - prolongedInactivityDays * 86400000).toISOString().slice(0, 10)}
+            onFiltrar={irAClientes}
+          />
           <PanelAccionesRapidas onNavigate={onNavigate} />
         </div>
       </div>
@@ -578,20 +590,30 @@ const ESTADO_LABELS: Record<EstadoCliente, { label: string; color: string; dot: 
   'en-atencion': { label: 'En atención', color: 'bg-amber-400', dot: '🟡' },
   'requiere-revision': { label: 'Requiere revisión', color: 'bg-pegasus-red', dot: '🔴' },
   'sin-actividad': { label: 'Sin actividad', color: 'bg-text-muted', dot: '⚪' },
+  'sin-actividad-prolongada': { label: 'Sin actividad prolongada', color: 'bg-text-muted', dot: '⚫' },
 }
 
 function PanelEstadoClientes({
   clientes,
   hoyIso,
+  umbralActivo,
+  umbralProlongado,
   onFiltrar,
 }: {
   clientes: ClienteResumen[]
   hoyIso: string
+  umbralActivo: string
+  umbralProlongado: string
   onFiltrar: (f: Filtro) => void
 }) {
-  const hace7dias = sieteDiasAtras()
-  const conteos: Record<EstadoCliente, number> = { activo: 0, 'en-atencion': 0, 'requiere-revision': 0, 'sin-actividad': 0 }
-  for (const c of clientes) conteos[estadoDeCliente(c, hoyIso, hace7dias)]++
+  const conteos: Record<EstadoCliente, number> = {
+    activo: 0,
+    'en-atencion': 0,
+    'requiere-revision': 0,
+    'sin-actividad': 0,
+    'sin-actividad-prolongada': 0,
+  }
+  for (const c of clientes) conteos[estadoDeCliente(c, hoyIso, umbralActivo, umbralProlongado)]++
   const total = clientes.length
 
   const FILTRO_POR_ESTADO: Record<EstadoCliente, Filtro> = {
@@ -599,6 +621,7 @@ function PanelEstadoClientes({
     'en-atencion': 'pago-pendiente',
     'requiere-revision': 'pendiente-revision',
     'sin-actividad': 'todos',
+    'sin-actividad-prolongada': 'todos',
   }
 
   return (
@@ -638,15 +661,17 @@ function PanelEstadoClientes({
 }
 
 function PanelAccionesRapidas({ onNavigate }: { onNavigate: (r: Route) => void }) {
-  // Crear rutina / Registrar medidas / Nueva revisión son acciones POR CLIENTE — hoy
-  // no existe (ni se añade aquí) un flujo que no pase antes por elegir cliente, así
-  // que las 4 acciones llevan a Clientes en vez de simular una acción directa falsa.
+  // Crear rutina / Registrar medidas son acciones POR CLIENTE — hoy no existe
+  // (ni se añade aquí) un flujo que no pase antes por elegir cliente, así que
+  // esas dos llevan a Clientes en vez de simular una acción directa falsa.
+  // "Nueva revisión" sí tiene ya un destino real: el Calendario, donde se
+  // elige cliente + tipo + fecha en el mismo sitio.
   const ir = () => onNavigate({ section: 'clientes' })
   const acciones = [
     { key: 'cliente', label: 'Añadir cliente', icon: UserPlus, onClick: ir },
     { key: 'rutina', label: 'Crear rutina', icon: Dumbbell, onClick: ir },
     { key: 'medidas', label: 'Registrar medidas', icon: Ruler, onClick: ir },
-    { key: 'revision', label: 'Nueva revisión', icon: CheckCircle2, onClick: ir },
+    { key: 'revision', label: 'Nueva revisión', icon: CheckCircle2, onClick: () => onNavigate({ section: 'calendario' }) },
   ]
   return (
     <Card>
@@ -665,8 +690,4 @@ function PanelAccionesRapidas({ onNavigate }: { onNavigate: (r: Route) => void }
       </div>
     </Card>
   )
-}
-
-function sieteDiasAtras(): string {
-  return new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
 }

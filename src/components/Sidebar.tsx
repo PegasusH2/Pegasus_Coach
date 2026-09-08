@@ -1,4 +1,5 @@
 import {
+  Calendar,
   ChevronDown,
   Home,
   LineChart,
@@ -156,6 +157,14 @@ export function Sidebar({ route, onNavigate, nombrePerfil, rol, onCerrarSesion, 
               icon={<Users size={16} />}
               label="Clientes"
               onClick={() => irA('clientes')}
+            />
+          )}
+          {rol === 'entrenador' && (
+            <NavItem
+              active={route.section === 'calendario'}
+              icon={<Calendar size={16} />}
+              label="Calendario"
+              onClick={() => irA('calendario')}
             />
           )}
 

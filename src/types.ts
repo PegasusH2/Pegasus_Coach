@@ -18,6 +18,21 @@ export interface Profile {
   fechaNacimiento: string | null
   altura: number | null
   sexo: Sexo | null
+  // ---- Perfil público del entrenador (ver 0015_centro_configuracion_entrenador.sql) ----
+  apellidos: string | null
+  nombreProfesional: string | null
+  telefono: string | null
+  ciudad: string | null
+  pais: string | null
+  especialidad: string | null
+  biografia: string | null
+  /** Qué ve el cliente de este perfil — sin consumidor todavía (no existe hoy
+   * ninguna pantalla donde un cliente vea el perfil de su entrenador). */
+  perfilVisibleNombreProfesional: boolean
+  perfilVisibleEspecialidad: boolean
+  perfilVisibleBiografia: boolean
+  perfilVisibleTelefono: boolean
+  perfilVisibleEmail: boolean
 }
 
 export type ProfileInput = Omit<Profile, 'id'>
@@ -199,11 +214,16 @@ export type DietTemplateItemInput = Omit<DietTemplateItem, 'id'>
 // ---------- Revisiones y pagos (centro de control del entrenador) ----------
 
 export type EstadoRevision = 'pendiente' | 'recibida' | 'revisada'
+/** Ver supabase/migrations/0013_calendario_tipo_revision.sql — mismo modelo (Review),
+ * solo distingue si el evento agendado es una revisión de seguimiento o un entreno
+ * presencial. El Calendario (Calendario.tsx) pinta ambos tipos sobre esta misma tabla. */
+export type TipoRevision = 'revision' | 'entreno'
 
 export interface Review {
   id: string
   trainerId: string
   clientId: string
+  tipo: TipoRevision
   fechaProgramada: string
   estado: EstadoRevision
   fechaRecepcion: string | null
@@ -291,12 +311,25 @@ export interface TrackerExercise {
   id: string
   userId: string
   name: string
-  muscleGroup: string
   notes: string
   archived: boolean
+  /** Ejercicio creado desde el catálogo global (ver ExerciseCatalogItem) — null si es manual. */
+  catalogId: string | null
 }
 
 export type TrackerExerciseInput = Omit<TrackerExercise, 'id'>
+
+// ---------- Catálogo global de ejercicios (solo lectura, solo texto — sin
+// imágenes ni vídeos, ver supabase/migrations/0014_catalogo_ejercicios.sql y
+// supabase/scripts/import-exercise-catalog.mjs) ----------
+
+export interface ExerciseCatalogItem {
+  id: string
+  name: string
+  category: string
+  equipment: string
+  instructions: string
+}
 
 export interface TrackerTemplate {
   id: string
@@ -396,4 +429,75 @@ export interface TrainerClientLink {
   // (se rellenan a mano al leer, ver src/lib/supabase/trainerRepo.ts).
   otroNombre?: string | null
   otroEmail?: string | null
+  /** Override por cliente sobre trainer_settings.reviewIntervalDays/precio estándar —
+   * null = usa el valor global del entrenador. Ver 0015_centro_configuracion_entrenador.sql. */
+  reviewIntervalDaysOverride: number | null
+  standardPriceOverride: number | null
 }
+
+// ---------- Centro de configuración del entrenador (ver
+// supabase/migrations/0015_centro_configuracion_entrenador.sql) ----------
+// Singleton 1:1 con el entrenador (como profiles) — nunca se lee/escribe para
+// un cliente. Alcance real vs "guardado para más adelante" documentado en el
+// plan de esta tarea; aquí solo el tipo, sin repetir esa discusión.
+
+export type WeightUnit = 'kg' | 'lb'
+export type DistanceUnit = 'km' | 'mi'
+export type StartScreen = 'inicio' | 'clientes' | 'calendario'
+export type ExportFormat = 'json' | 'csv'
+
+export interface TrainerSettings {
+  id: string
+  reviewIntervalDays: number
+  reviewDefaultWeekday: number | null
+  reviewReminderDaysBefore: number
+  inactivityDays: number
+  attentionDays: number
+  prolongedInactivityDays: number
+  currency: string
+  paymentGraceDays: number | null
+  showPaymentStatus: boolean
+  weightUnit: WeightUnit
+  distanceUnit: DistanceUnit
+  useRir: boolean
+  useRpe: boolean
+  defaultRestSeconds: number | null
+  nutritionEnabled: boolean
+  defaultTipoDieta: TipoDieta
+  trackWeight: boolean
+  trackHeight: boolean
+  trackWaist: boolean
+  trackHip: boolean
+  trackChest: boolean
+  trackArm: boolean
+  trackLeg: boolean
+  progressWeight: boolean
+  progressPhotos: boolean
+  progressMeasurements: boolean
+  progressPerformance: boolean
+  progressAdherence: boolean
+  progressTrainerNotes: boolean
+  startScreen: StartScreen
+  dateFormat: string
+  exportFormat: ExportFormat
+  updatedAt: string
+}
+
+export type TrainerSettingsInput = Partial<Omit<TrainerSettings, 'id' | 'updatedAt'>>
+
+export type ServiceTipo = 'mensual' | 'alta' | 'revision_individual' | 'sesion_individual' | 'plan_nutricional' | 'otro'
+
+export interface ServicePrice {
+  id: string
+  trainerId: string
+  tipo: ServiceTipo
+  nombre: string | null
+  precio: number | null
+  periodicidad: 'mensual' | 'trimestral' | 'anual' | null
+  activo: boolean
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type ServicePriceInput = Omit<ServicePrice, 'id' | 'createdAt' | 'updatedAt'>

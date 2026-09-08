@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { ArrowLeft, Check } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowLeft, Check, ClipboardCheck, Dumbbell } from 'lucide-react'
 import {
   useActiveMacroPlan,
+  useAsyncData,
   useLinkCliente,
   useMeasurements,
   usePaymentsCliente,
@@ -12,6 +13,8 @@ import {
 import { useSession } from '@/lib/SessionContext'
 import { createReview, updateReviewEstado } from '@/lib/supabase/reviewRepo'
 import { createPayment } from '@/lib/supabase/paymentRepo'
+import { listServicePrices } from '@/lib/supabase/trainerSettingsRepo'
+import { updateLinkOverrides } from '@/lib/supabase/trainerRepo'
 import { Avatar } from '@/components/ui/Avatar'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -26,7 +29,7 @@ import { calcularEdad, calcularMacroPlan } from '@/lib/calculos'
 import { rolLabel, sexoLabel } from '@/lib/supabase/profileRepo'
 import { revokeLink } from '@/lib/supabase/trainerRepo'
 import type { FichaTab, ProgresoTab, Route } from '@/lib/nav'
-import type { EstadoRevision } from '@/types'
+import type { EstadoRevision, TipoRevision } from '@/types'
 
 const TABS: { key: FichaTab; label: string }[] = [
   { key: 'datos', label: 'Datos' },
@@ -38,9 +41,12 @@ const TABS: { key: FichaTab; label: string }[] = [
 ]
 
 export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (r: Route) => void }) {
-  const { clienteActivo, setClienteActivo } = useSession()
+  const { clienteActivo, setClienteActivo, trainerSettings } = useSession()
   const { data: perfilCliente, refetch: refetchPerfilCliente } = useTargetProfile()
   const [progresoTab, setProgresoTab] = useState<ProgresoTab>('peso')
+  // Ajustes → Nutrición → "Activar nutrición": oculta la pestaña sin borrar
+  // ningún plan/dato ya existente del cliente (trainerSettings.nutritionEnabled).
+  const tabsVisibles = TABS.filter((t) => t.key !== 'macros' || trainerSettings?.nutritionEnabled !== false)
 
   function volver() {
     setClienteActivo(null)
@@ -67,7 +73,7 @@ export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (
       </div>
 
       <div className="mb-5 flex flex-wrap gap-1 rounded-control bg-bg-panel p-1 w-fit">
-        {TABS.map((t) => (
+        {tabsVisibles.map((t) => (
           <button
             key={t.key}
             onClick={() => onNavigate({ section: 'ficha', fichaTab: t.key })}
@@ -252,17 +258,35 @@ function DatosTab({ onDesvinculado }: { onDesvinculado: () => void }) {
   )
 }
 
+/** Próxima fecha sugerida = hoy + intervalo — el intervalo del propio cliente
+ * (si se ha fijado un override en Datos) prima sobre el global del entrenador
+ * (Ajustes → Parámetros del servicio). El entrenador puede cambiar la fecha
+ * libremente después, esto solo prellena el campo. */
+function fechaSugerida(intervaloDias: number): string {
+  return new Date(Date.now() + intervaloDias * 86400000).toISOString().slice(0, 10)
+}
+
 function RevisionesTab() {
-  const { session, clienteActivo } = useSession()
+  const { session, clienteActivo, trainerSettings } = useSession()
   const { data: revisiones, refetch } = useReviewsCliente()
+  const { data: link } = useLinkCliente()
+  const intervalo = link?.reviewIntervalDaysOverride ?? trainerSettings?.reviewIntervalDays ?? 30
   const [fecha, setFecha] = useState(hoyIso())
+  const [fechaTocada, setFechaTocada] = useState(false)
+  const [tipo, setTipo] = useState<TipoRevision>('revision')
   const [guardando, setGuardando] = useState(false)
+
+  useEffect(() => {
+    if (!fechaTocada) setFecha(fechaSugerida(intervalo))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intervalo])
 
   async function programar() {
     if (!session || !clienteActivo) return
     setGuardando(true)
     try {
-      await createReview({ trainerId: session.user.id, clientId: clienteActivo.id, fechaProgramada: fecha, estado: 'pendiente', fechaRecepcion: null, notas: null })
+      await createReview({ trainerId: session.user.id, clientId: clienteActivo.id, tipo, fechaProgramada: fecha, estado: 'pendiente', fechaRecepcion: null, notas: null })
+      setFechaTocada(false)
       await refetch()
     } finally {
       setGuardando(false)
@@ -279,7 +303,26 @@ function RevisionesTab() {
       <Card>
         <CardLabel>Programar revisión</CardLabel>
         <div className="flex items-end gap-3">
-          <Field label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          <Field
+            label="Fecha"
+            type="date"
+            value={fecha}
+            onChange={(e) => {
+              setFecha(e.target.value)
+              setFechaTocada(true)
+            }}
+          />
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-text-secondary">Tipo</span>
+            <select
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value as TipoRevision)}
+              className="rounded-control border border-bg-border bg-bg-panel px-3 py-2 text-sm text-text-primary outline-none focus:border-pegasus-red"
+            >
+              <option value="revision">Revisión</option>
+              <option value="entreno">Entreno presencial</option>
+            </select>
+          </label>
           <Button onClick={programar} disabled={guardando}>
             Programar
           </Button>
@@ -291,9 +334,12 @@ function RevisionesTab() {
         <div className="flex flex-col gap-2">
           {(revisiones ?? []).map((r) => (
             <div key={r.id} className="flex items-center justify-between rounded-control border border-bg-border p-3 text-sm">
-              <div>
-                <div className="font-medium">{formatFechaCorta(r.fechaProgramada)}</div>
-                <div className="text-xs text-text-muted">{formatFechaRelativa(r.fechaProgramada)}</div>
+              <div className="flex items-center gap-2">
+                {r.tipo === 'entreno' ? <Dumbbell size={14} className="text-text-muted" /> : <ClipboardCheck size={14} className="text-text-muted" />}
+                <div>
+                  <div className="font-medium">{formatFechaCorta(r.fechaProgramada)}</div>
+                  <div className="text-xs text-text-muted">{formatFechaRelativa(r.fechaProgramada)}</div>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <span
@@ -331,11 +377,59 @@ function RevisionesTab() {
   )
 }
 
+function PrecioClienteCard() {
+  const { session } = useSession()
+  const { data: link, refetch: refetchLink } = useLinkCliente()
+  const { data: servicios } = useAsyncData(() => (session ? listServicePrices(session.user.id) : Promise.resolve([])), [session?.user.id])
+  const [precio, setPrecio] = useState('')
+  const [guardando, setGuardando] = useState(false)
+  const [guardado, setGuardado] = useState(false)
+
+  useEffect(() => setPrecio(link?.standardPriceOverride?.toString() ?? ''), [link?.standardPriceOverride])
+
+  const servicioMensual = (servicios ?? []).find((s) => s.tipo === 'mensual' && s.activo)
+
+  async function guardar() {
+    if (!link) return
+    setGuardando(true)
+    try {
+      await updateLinkOverrides(link.id, { standardPriceOverride: precio ? Number(precio) : null })
+      await refetchLink()
+      setGuardado(true)
+      setTimeout(() => setGuardado(false), 2500)
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  if (!link) return null
+
+  return (
+    <Card>
+      <CardLabel>Precio para este cliente</CardLabel>
+      <p className="mb-3 text-xs text-text-muted">
+        Déjalo vacío para usar tu precio estándar{servicioMensual?.precio != null ? ` (${servicioMensual.precio} €)` : ''} — configurable en
+        Ajustes → Precios y facturación.
+      </p>
+      <div className="flex items-end gap-3">
+        <Field label="Precio para este cliente" type="number" suffix="€" value={precio} onChange={(e) => setPrecio(e.target.value)} />
+        <Button onClick={guardar} disabled={guardando}>
+          Guardar
+        </Button>
+        {guardado && <span className="text-xs font-medium text-emerald-400">✓ Guardado</span>}
+      </div>
+    </Card>
+  )
+}
+
 function PagosTab() {
   const { session, clienteActivo } = useSession()
+  const { data: link } = useLinkCliente()
   const linkId = clienteActivo?.linkId ?? null
   const { data: pagos, refetch } = usePaymentsCliente(linkId)
+  const { data: servicios } = useAsyncData(() => (session ? listServicePrices(session.user.id) : Promise.resolve([])), [session?.user.id])
   const [amount, setAmount] = useState('')
+  const [amountTocado, setAmountTocado] = useState(false)
   const [paymentDate, setPaymentDate] = useState(hoyIso())
   const [nextPaymentDate, setNextPaymentDate] = useState('')
   const [status, setStatus] = useState<'paid' | 'pending'>('paid')
@@ -343,6 +437,14 @@ function PagosTab() {
   const [guardando, setGuardando] = useState(false)
 
   const actual = pagos?.[0] ?? null
+
+  useEffect(() => {
+    if (amountTocado) return
+    const servicioMensual = (servicios ?? []).find((s) => s.tipo === 'mensual' && s.activo)
+    const sugerido = link?.standardPriceOverride ?? servicioMensual?.precio ?? null
+    if (sugerido != null) setAmount(sugerido.toString())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [link?.standardPriceOverride, servicios])
 
   async function registrar() {
     if (!session || !clienteActivo || !linkId) return
@@ -362,6 +464,7 @@ function PagosTab() {
         notes: notes || null,
       })
       setAmount('')
+      setAmountTocado(false)
       setNotes('')
       await refetch()
     } finally {
@@ -371,6 +474,7 @@ function PagosTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PrecioClienteCard />
       <Card>
         <CardLabel>Estado actual</CardLabel>
         {actual ? (
@@ -410,7 +514,16 @@ function PagosTab() {
             </button>
           </div>
           <div />
-          <Field label="Importe" type="number" suffix="€" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <Field
+            label="Importe"
+            type="number"
+            suffix="€"
+            value={amount}
+            onChange={(e) => {
+              setAmount(e.target.value)
+              setAmountTocado(true)
+            }}
+          />
           <Field label="Fecha de pago" type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} />
           <Field label="Próximo pago" type="date" value={nextPaymentDate} onChange={(e) => setNextPaymentDate(e.target.value)} />
           <Field label="Notas" value={notes} onChange={(e) => setNotes(e.target.value)} />

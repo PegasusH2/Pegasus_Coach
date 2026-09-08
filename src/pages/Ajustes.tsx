@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Download, FileSpreadsheet, Plus } from 'lucide-react'
 import { useAsyncData } from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
-import { SEXO_LABELS, changeRole, updateProfile } from '@/lib/supabase/profileRepo'
-import { RolPicker } from '@/components/ui/RolPicker'
+import { SEXO_LABELS, updateProfile } from '@/lib/supabase/profileRepo'
 import { TipoNutricionCard } from '@/components/ui/TipoNutricionCard'
 import { calcularEdad } from '@/lib/calculos'
-import type { Rol, Sexo } from '@/types'
+import type { Sexo } from '@/types'
 import { createMesociclo, listMesociclos } from '@/lib/supabase/mesocicloRepo'
 import { createMacroPlansBatch } from '@/lib/supabase/macroPlanRepo'
 import {
@@ -22,6 +21,7 @@ import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { SolicitudesPendientesCliente } from './Clientes'
+import { AjustesEntrenador } from './AjustesEntrenador'
 import type { ImportPreview, Mesociclo } from '@/types'
 
 function PerfilCard() {
@@ -105,60 +105,6 @@ function PerfilCard() {
           Guardar
         </Button>
       </div>
-    </Card>
-  )
-}
-
-function RolCard() {
-  const { session, profile, refreshProfile } = useSession()
-  const [seleccion, setSeleccion] = useState<Rol | null>(null)
-  const [cargando, setCargando] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  if (!profile) return null
-  const rolActual = profile.role
-  const pendiente = seleccion !== null && seleccion !== rolActual ? seleccion : null
-
-  async function confirmar() {
-    if (!session || !pendiente) return
-    setCargando(true)
-    setError(null)
-    try {
-      await changeRole(session.user.id, pendiente)
-      await refreshProfile()
-      setSeleccion(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cambiar el tipo de cuenta')
-    } finally {
-      setCargando(false)
-    }
-  }
-
-  return (
-    <Card>
-      <CardLabel>Tipo de cuenta</CardLabel>
-      <RolPicker value={seleccion ?? rolActual} onChange={setSeleccion} />
-      {pendiente === 'personal' && (
-        <p className="mt-3 text-xs text-pegasus-red">
-          Al pasar a Personal se revocan automáticamente tus vínculos con clientes — dejarás de ver su progreso.
-        </p>
-      )}
-      {pendiente === 'entrenador' && (
-        <p className="mt-3 text-xs text-text-muted">
-          Podrás invitar clientes desde la sección Clientes.
-        </p>
-      )}
-      {error && <p className="mt-2 text-sm text-pegasus-red">{error}</p>}
-      {pendiente && (
-        <div className="mt-3 flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => setSeleccion(null)}>
-            Cancelar
-          </Button>
-          <Button onClick={confirmar} disabled={cargando}>
-            Confirmar cambio a {pendiente === 'entrenador' ? 'Entrenador' : 'Personal'}
-          </Button>
-        </div>
-      )}
     </Card>
   )
 }
@@ -420,12 +366,21 @@ function ImportarExcelCard({ onImported }: { onImported: () => void }) {
 }
 
 export function Ajustes() {
-  const { session } = useSession()
+  const { session, profile } = useSession()
   const userId = session?.user.id ?? ''
   // Ajustes es siempre sobre la propia cuenta, nunca sobre un cliente que un
   // entrenador esté viendo — se consulta explícitamente contra session.user.id,
   // no contra targetUserId (que apuntaría al cliente activo).
   const { data: mesociclos, refetch: refetchMesociclos } = useAsyncData(() => listMesociclos(userId), [userId])
+
+  // Pegasus Coach ya no ofrece elegir "Personal" en ningún sitio de su propia
+  // superficie (alta, Completar perfil, aquí) — los nuevos registros a través
+  // de Coach siempre son 'entrenador'. Los perfiles 'personal' YA EXISTENTES
+  // (en la práctica, clientes de Pegasus Tracker cuyo perfil se creó ahí
+  // automáticamente, sin haber abierto Coach nunca) conservan exactamente el
+  // Ajustes de siempre — sin el selector de tipo de cuenta, que no vuelve a
+  // aparecer para nadie, pero sin ningún otro cambio ni pérdida de acceso.
+  if (profile?.role === 'entrenador') return <AjustesEntrenador />
 
   return (
     <div className="max-w-4xl">
@@ -433,7 +388,6 @@ export function Ajustes() {
       <div className="flex flex-col gap-4">
         <SolicitudesPendientesCliente />
         <PerfilCard />
-        <RolCard />
         <TipoDietaCard />
         <MesociclosCard mesociclos={mesociclos ?? []} refetch={refetchMesociclos} />
         <ImportarExcelCard onImported={refetchMesociclos} />

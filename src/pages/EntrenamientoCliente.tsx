@@ -6,17 +6,18 @@
 //     supabase/migrations/0009_revertir_ejecucion_entrenador.sql).
 //   - Planificación: ejercicios y rutinas (templates) que el entrenador prepara
 //     para el cliente — el entrenador SÍ puede crear/editar/borrar aquí.
-import { useState } from 'react'
-import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronRight, Copy, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronRight, Copy, Library, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useExercisesCliente, useRoutinesCliente, useTemplateExercises, useTemplatesCliente } from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
 import * as trackerWriteRepo from '@/lib/supabase/trackerWriteRepo'
+import { searchCatalog } from '@/lib/supabase/catalogRepo'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { formatFechaCorta } from '@/lib/format'
 import { EjecucionCliente } from './EjecucionCliente'
-import type { TrackerExercise, TrackerRoutine, TrackerTemplate } from '@/types'
+import type { ExerciseCatalogItem, TrackerExercise, TrackerRoutine, TrackerTemplate } from '@/types'
 
 /** Botón de borrar con confirmación inline — mismo patrón (sin modal) que ya usa el
  * resto de Coach (Ajustes.tsx, TipoNutricionCard) para no introducir un sistema de
@@ -611,6 +612,7 @@ function BibliotecaEjercicios({ ejercicios, onChange }: { ejercicios: TrackerExe
   const [busqueda, setBusqueda] = useState('')
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const [catalogoAbierto, setCatalogoAbierto] = useState(false)
 
   const filtrados = ejercicios.filter((e) => e.name.toLowerCase().includes(busqueda.toLowerCase()))
 
@@ -618,7 +620,7 @@ function BibliotecaEjercicios({ ejercicios, onChange }: { ejercicios: TrackerExe
     if (!targetUserId || !nuevoNombre.trim()) return
     setGuardando(true)
     try {
-      await trackerWriteRepo.createExercise(targetUserId, { userId: targetUserId, name: nuevoNombre, muscleGroup: '', notes: '', archived: false })
+      await trackerWriteRepo.createExercise(targetUserId, { userId: targetUserId, name: nuevoNombre, notes: '', archived: false, catalogId: null })
       setNuevoNombre('')
       onChange()
     } finally {
@@ -650,6 +652,73 @@ function BibliotecaEjercicios({ ejercicios, onChange }: { ejercicios: TrackerExe
           Añadir
         </Button>
       </div>
+      <button
+        onClick={() => setCatalogoAbierto((v) => !v)}
+        className="mt-3 flex items-center gap-1.5 text-xs font-medium text-pegasus-red hover:text-pegasus-redDark"
+      >
+        <Library size={13} />
+        {catalogoAbierto ? 'Ocultar catálogo' : 'Añadir desde catálogo'}
+      </button>
+      {catalogoAbierto && targetUserId && <CatalogoEjercicios targetUserId={targetUserId} onAdded={onChange} />}
     </Card>
+  )
+}
+
+/** Panel de búsqueda sobre el catálogo global (exercise_catalog, solo lectura) — al
+ * elegir uno, crea un ejercicio propio del cliente precargado (nombre). */
+function CatalogoEjercicios({ targetUserId, onAdded }: { targetUserId: string; onAdded: () => void }) {
+  const [busqueda, setBusqueda] = useState('')
+  const [resultados, setResultados] = useState<ExerciseCatalogItem[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [añadiendoId, setAñadiendoId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelado = false
+    setCargando(true)
+    const t = setTimeout(() => {
+      searchCatalog(busqueda)
+        .then((r) => !cancelado && setResultados(r))
+        .catch((err) => {
+          console.warn('No se pudo cargar el catálogo de ejercicios', err)
+          if (!cancelado) setResultados([])
+        })
+        .finally(() => !cancelado && setCargando(false))
+    }, 250)
+    return () => {
+      cancelado = true
+      clearTimeout(t)
+    }
+  }, [busqueda])
+
+  async function añadir(item: ExerciseCatalogItem) {
+    setAñadiendoId(item.id)
+    try {
+      await trackerWriteRepo.createExerciseFromCatalog(targetUserId, item)
+      onAdded()
+    } finally {
+      setAñadiendoId(null)
+    }
+  }
+
+  return (
+    <div className="mt-3 border-t border-bg-border pt-3">
+      <Field label="Buscar en el catálogo" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="p.ej. press banca" />
+      <div className="mt-2 flex max-h-72 flex-col gap-1.5 overflow-y-auto">
+        {cargando && <p className="py-3 text-center text-xs text-text-muted">Buscando…</p>}
+        {!cargando &&
+          resultados.map((item) => (
+            <div key={item.id} className="flex items-center gap-2 rounded-control border border-bg-border px-2.5 py-1.5 text-sm">
+              <div className="min-w-0 flex-1">
+                <div className="truncate">{item.name}</div>
+                <div className="truncate text-[11px] text-text-muted">{item.category}</div>
+              </div>
+              <Button onClick={() => añadir(item)} disabled={añadiendoId === item.id}>
+                {añadiendoId === item.id ? 'Añadiendo…' : 'Añadir'}
+              </Button>
+            </div>
+          ))}
+        {!cargando && resultados.length === 0 && <p className="py-3 text-center text-xs text-text-muted">Sin resultados.</p>}
+      </div>
+    </div>
   )
 }

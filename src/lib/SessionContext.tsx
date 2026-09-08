@@ -3,7 +3,8 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase/client'
 import { getProfile } from './supabase/profileRepo'
 import { listAsClient } from './supabase/trainerRepo'
-import type { Profile, TrainerClientLink } from '@/types'
+import { getTrainerSettings } from './supabase/trainerSettingsRepo'
+import type { Profile, TrainerClientLink, TrainerSettings } from '@/types'
 
 interface ClienteActivo {
   id: string
@@ -41,6 +42,11 @@ interface SessionContextValue {
    * `Peso.tsx`/`Progreso.tsx`/`FichaCliente.tsx` ya no leen ningún flag de
    * "solo lectura": siempre son editables, sea cual sea quién los esté viendo. */
   soloLecturaNutricion: boolean
+  /** Configuración del entrenador (intervalos/umbrales/precios por defecto...) — solo
+   * se carga cuando profile.role === 'entrenador'; null en cualquier otro caso (nunca
+   * la de un cliente que se esté viendo, esto es siempre sobre la propia cuenta). */
+  trainerSettings: TrainerSettings | null
+  refreshTrainerSettings: () => Promise<void>
   /** true tras entrar desde el enlace de "recuperar contraseña" del email — hay
    * sesión, pero antes de nada hay que dejar poner una contraseña nueva. */
   recoveryMode: boolean
@@ -56,6 +62,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [profileError, setProfileError] = useState<string | null>(null)
   const [clienteActivo, setClienteActivo] = useState<ClienteActivo | null>(null)
   const [miVinculoEntrenador, setMiVinculoEntrenador] = useState<TrainerClientLink | null>(null)
+  const [trainerSettings, setTrainerSettings] = useState<TrainerSettings | null>(null)
   const [recoveryMode, setRecoveryMode] = useState(false)
 
   async function loadProfile(userId: string) {
@@ -63,6 +70,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const [p, links] = await Promise.all([getProfile(userId), listAsClient(userId)])
       setProfile(p ?? null)
       setMiVinculoEntrenador(links.find((l) => l.status === 'accepted') ?? null)
+      setTrainerSettings(p?.role === 'entrenador' ? await getTrainerSettings(userId) : null)
       setProfileError(null)
     } catch (err) {
       setProfileError(err instanceof Error ? err.message : String(err))
@@ -84,6 +92,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       else {
         setProfile(null)
         setMiVinculoEntrenador(null)
+        setTrainerSettings(null)
         setProfileChecked(false)
         setProfileError(null)
       }
@@ -108,6 +117,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         miVinculoEntrenador,
         tengoEntrenadorAceptado,
         soloLecturaNutricion: clienteActivo !== null ? false : tengoEntrenadorAceptado,
+        trainerSettings,
+        refreshTrainerSettings: async () => {
+          if (session && profile?.role === 'entrenador') setTrainerSettings(await getTrainerSettings(session.user.id))
+        },
         recoveryMode,
         clearRecoveryMode: () => setRecoveryMode(false),
       }}

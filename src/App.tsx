@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Menu } from 'lucide-react'
 import { Sidebar } from './components/Sidebar'
 import { DiaTipoProvider } from './lib/DiaTipoContext'
@@ -13,19 +13,33 @@ import { Progreso } from './pages/Progreso'
 import { Clientes } from './pages/Clientes'
 import { FichaCliente } from './pages/FichaCliente'
 import { Revisiones } from './pages/Revisiones'
+import { Calendario } from './pages/Calendario'
 import { Ajustes } from './pages/Ajustes'
 
 function AppShell() {
   const [route, setRoute] = useState<Route>({ section: 'inicio' })
   const [menuAbierto, setMenuAbierto] = useState(false)
-  const { session, profile, profileChecked, profileError, recoveryMode } = useSession()
+  const { session, profile, profileChecked, profileError, recoveryMode, trainerSettings } = useSession()
 
-  // Al cambiar de cuenta (o cerrar sesión) o de rol (p.ej. Personal → Entrenador
-  // desde Ajustes), no debe quedar la sección de una pantalla que quizá no
-  // aplique ya (p.ej. "clientes", o "peso" propio si se pasa a Entrenador).
+  // Al cambiar de cuenta (o cerrar sesión) o de rol, no debe quedar la sección
+  // de una pantalla que quizá no aplique ya (p.ej. "clientes" para un perfil
+  // 'personal').
   useEffect(() => {
     setRoute({ section: 'inicio' })
   }, [session?.user.id, profile?.role])
+
+  // Para un entrenador, la pantalla de ARRANQUE es su preferencia (Ajustes →
+  // Preferencias → "Pantalla al iniciar"), no siempre "inicio" — pero solo se
+  // aplica UNA VEZ al iniciar sesión (guardada en el ref), nunca en cada
+  // guardado posterior de Ajustes: si el entrenador está en Calendario y
+  // cambia esa preferencia, no queremos sacarlo de donde está.
+  const startScreenAplicadaPara = useRef<string | null>(null)
+  useEffect(() => {
+    if (!session || !trainerSettings || profile?.role !== 'entrenador') return
+    if (startScreenAplicadaPara.current === session.user.id) return
+    startScreenAplicadaPara.current = session.user.id
+    setRoute({ section: trainerSettings.startScreen })
+  }, [session, trainerSettings, profile?.role])
 
   // El drawer móvil se cierra solo: al elegir una sección, al pulsar Escape,
   // o al tocar fuera (backdrop, ver más abajo). Mientras está abierto se
@@ -130,6 +144,7 @@ function AppShell() {
               <FichaCliente tab={route.fichaTab ?? 'datos'} onNavigate={setRoute} />
             )}
             {route.section === 'revisiones' && profile.role === 'entrenador' && <Revisiones />}
+            {route.section === 'calendario' && profile.role === 'entrenador' && <Calendario />}
             {route.section === 'ajustes' && <Ajustes />}
           </main>
         </div>
