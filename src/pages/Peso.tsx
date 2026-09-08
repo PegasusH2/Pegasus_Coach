@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { WeightChart } from '@/components/WeightChart'
 import { formatFechaCorta, formatNumero, hoyIso } from '@/lib/format'
-import { Pencil, Trash2 } from 'lucide-react'
+import { exportarPesoExcel } from '@/lib/exportData'
+import { Download, Pencil, Trash2 } from 'lucide-react'
 import type { WeightEntry } from '@/types'
 
 export function Peso() {
@@ -98,7 +99,16 @@ export function Peso() {
       </Card>
 
       <Card className="mt-4">
-        <CardLabel>Histórico</CardLabel>
+        <div className="flex items-center justify-between">
+          <CardLabel>Histórico</CardLabel>
+          <button
+            onClick={() => exportarPesoExcel(pesos)}
+            disabled={pesos.length === 0}
+            className="flex items-center gap-1.5 text-xs font-semibold text-pegasus-red hover:text-pegasus-redDark disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Download size={13} /> Exportar a Excel
+          </button>
+        </div>
         <div className="max-h-64 overflow-y-auto">
           <table className="w-full text-sm">
             <tbody>
