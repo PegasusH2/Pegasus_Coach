@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Eye, Menu } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { Sidebar } from './components/Sidebar'
 import { DiaTipoProvider } from './lib/DiaTipoContext'
 import { SessionProvider, useSession } from './lib/SessionContext'
@@ -18,7 +18,7 @@ import { Ajustes } from './pages/Ajustes'
 function AppShell() {
   const [route, setRoute] = useState<Route>({ section: 'inicio' })
   const [menuAbierto, setMenuAbierto] = useState(false)
-  const { session, profile, profileChecked, profileError, clienteActivo, setClienteActivo, recoveryMode } = useSession()
+  const { session, profile, profileChecked, profileError, recoveryMode } = useSession()
 
   // Al cambiar de cuenta (o cerrar sesión) o de rol (p.ej. Personal → Entrenador
   // desde Ajustes), no debe quedar la sección de una pantalla que quizá no
@@ -75,17 +75,6 @@ function AppShell() {
   return (
     <DiaTipoProvider>
       <div className="flex h-screen flex-col overflow-hidden bg-bg">
-        {clienteActivo && (
-          <div className="flex items-center justify-between gap-2 bg-pegasus-red px-4 py-1.5 text-xs font-medium text-white">
-            <span className="flex items-center gap-1.5">
-              <Eye size={13} /> Viendo a {clienteActivo.nombre} · solo lectura
-            </span>
-            <button className="shrink-0 underline" onClick={() => setClienteActivo(null)}>
-              Volver a mis datos
-            </button>
-          </div>
-        )}
-
         {/* Barra superior — solo móvil/tablet estrecho; en desktop el Sidebar ya es visible siempre. */}
         <div
           className="flex items-center gap-3 border-b border-bg-border bg-bg px-4 py-3 md:hidden"
