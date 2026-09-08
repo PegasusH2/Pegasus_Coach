@@ -18,7 +18,6 @@ import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { TipoNutricionCard } from '@/components/ui/TipoNutricionCard'
 import { Macros } from './Macros'
-import { Peso } from './Peso'
 import { Progreso } from './Progreso'
 import { EntrenamientoCliente } from './EntrenamientoCliente'
 import { WeightChart } from '@/components/WeightChart'
@@ -32,7 +31,6 @@ import type { EstadoRevision } from '@/types'
 const TABS: { key: FichaTab; label: string }[] = [
   { key: 'datos', label: 'Datos' },
   { key: 'macros', label: 'Nutrición' },
-  { key: 'peso', label: 'Peso' },
   { key: 'progreso', label: 'Progreso' },
   { key: 'entrenamiento', label: 'Entrenamiento' },
   { key: 'revisiones', label: 'Revisiones' },
@@ -42,7 +40,7 @@ const TABS: { key: FichaTab; label: string }[] = [
 export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (r: Route) => void }) {
   const { clienteActivo, setClienteActivo } = useSession()
   const { data: perfilCliente, refetch: refetchPerfilCliente } = useTargetProfile()
-  const [progresoTab, setProgresoTab] = useState<ProgresoTab>('evolucion')
+  const [progresoTab, setProgresoTab] = useState<ProgresoTab>('peso')
 
   function volver() {
     setClienteActivo(null)
@@ -97,8 +95,7 @@ export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (
             <Macros key={perfilCliente.tipoDieta} />
           </div>
         )}
-        {tab === 'peso' && <Peso />}
-        {tab === 'progreso' && <Progreso tab={progresoTab} onNavigate={(r) => setProgresoTab(r.progresoTab ?? 'evolucion')} />}
+        {tab === 'progreso' && <Progreso tab={progresoTab} onNavigate={(r) => setProgresoTab(r.progresoTab ?? 'peso')} />}
         {tab === 'entrenamiento' && <EntrenamientoCliente />}
         {tab === 'revisiones' && <RevisionesTab />}
         {tab === 'pagos' && <PagosTab />}

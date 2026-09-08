@@ -12,7 +12,20 @@ import { exportarPesoExcel } from '@/lib/exportData'
 import { Download, Pencil, Trash2 } from 'lucide-react'
 import type { WeightEntry } from '@/types'
 
+/** Página completa con cabecera propia — usada por Personal (App.tsx) como pantalla
+ * de nivel superior. Dentro de la ficha de un cliente (entrenador), se usa
+ * PesoContenido directamente en la pestaña Progreso > Peso, sin duplicar cabecera
+ * ni volver a montar una ruta "Peso" aparte — ver Progreso.tsx. */
 export function Peso() {
+  return (
+    <div className="max-w-4xl">
+      <PageHeader title="Peso" subtitle="Registro y evolución del peso corporal" />
+      <PesoContenido />
+    </div>
+  )
+}
+
+export function PesoContenido() {
   const { data: entries, refetch } = useWeightEntries()
   const [fecha, setFecha] = useState(hoyIso())
   const [peso, setPeso] = useState('')
@@ -58,9 +71,7 @@ export function Peso() {
   }
 
   return (
-    <div className="max-w-4xl">
-      <PageHeader title="Peso" subtitle="Registro y evolución del peso corporal" />
-
+    <div className="flex flex-col gap-4">
       <div className="grid grid-cols-4 gap-4">
         <Card>
           <CardLabel>Actual</CardLabel>
@@ -82,12 +93,12 @@ export function Peso() {
         </Card>
       </div>
 
-      <Card className="mt-4">
+      <Card>
         <CardLabel>Evolución</CardLabel>
         <WeightChart entries={pesos} height={260} />
       </Card>
 
-      <Card className="mt-4">
+      <Card>
         <CardLabel>Registrar peso</CardLabel>
         <div className="flex items-end gap-3">
           <Field label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
@@ -98,7 +109,7 @@ export function Peso() {
         </div>
       </Card>
 
-      <Card className="mt-4">
+      <Card>
         <div className="flex items-center justify-between">
           <CardLabel>Histórico</CardLabel>
           <button

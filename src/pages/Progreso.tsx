@@ -7,7 +7,7 @@ import { deleteMeasurement } from '@/lib/supabase/measurementRepo'
 import * as trackerMeasurementRepo from '@/lib/supabase/trackerMeasurementRepo'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { PageHeader } from '@/components/ui/PageHeader'
-import { WeightChart } from '@/components/WeightChart'
+import { PesoContenido } from './Peso'
 import { MeasurementForm, type CampoMedicion } from '@/components/ui/MeasurementForm'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
@@ -138,12 +138,7 @@ export function Progreso({ tab, onNavigate }: { tab: ProgresoTab; onNavigate: (r
       </div>
 
       <div key={tab} className="tab-fade">
-        {tab === 'peso' && (
-          <Card>
-            <CardLabel>Evolución de peso</CardLabel>
-            <WeightChart entries={pesos} height={300} />
-          </Card>
-        )}
+        {tab === 'peso' && <PesoContenido />}
 
         {tab === 'medidas' && (
           <div className="flex flex-col gap-4">
