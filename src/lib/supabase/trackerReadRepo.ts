@@ -71,12 +71,16 @@ function toWorkout(w: RawWorkout): TrackerWorkout & { ejercicios: TrackerWorkout
   }
 }
 
-/** Último entrenamiento (por fecha) del cliente — usado como señal de "última actividad". */
+/** Último entrenamiento REALIZADO (completed=true) del cliente — usado como señal de
+ * "última actividad". Sin el filtro por completed, un entrenamiento creado con fecha
+ * futura desde el calendario de Tracker (planificado, nunca hecho) "ganaba" por fecha
+ * y aparecía como la actividad más reciente aunque el cliente no hubiera entrenado. */
 export async function getUltimoWorkout(clientId: string): Promise<TrackerWorkout | undefined> {
   const { data, error } = await supabase
     .from('workouts')
     .select('id, user_id, name, date, completed, template_id')
     .eq('user_id', clientId)
+    .eq('completed', true)
     .is('deleted_at', null)
     .order('date', { ascending: false })
     .limit(1)
