@@ -25,7 +25,11 @@ export interface ClienteResumen {
 export interface ResumenEntrenador {
   clientesTotal: number
   clientesActivos: number
+  /** Pendientes con fechaProgramada >= hoy (genuinely futuras, dentro de 7 días) — antes
+   * incluía también las vencidas, mezclando dos cosas distintas para el dashboard. */
   proximasRevisiones: Review[]
+  /** Pendientes con fechaProgramada < hoy — requieren atención ya, no "próximamente". */
+  revisionesVencidas: Review[]
   revisionesRecibidasEsteMes: Review[]
   clientesPendientesPago: { clientId: string; nombre: string; amount: number | null }[]
   totalPendiente: number
@@ -87,8 +91,10 @@ export async function getResumenEntrenador(trainerId: string): Promise<ResumenEn
   const proximaPendientePorCliente = new Map<string, Review>()
   for (const r of pendientes) if (!proximaPendientePorCliente.has(r.clientId)) proximaPendientePorCliente.set(r.clientId, r)
 
+  const hoy = new Date().toISOString().slice(0, 10)
   const en7dias = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
-  const proximasRevisiones = pendientes.filter((r) => r.fechaProgramada <= en7dias)
+  const revisionesVencidas = pendientes.filter((r) => r.fechaProgramada < hoy)
+  const proximasRevisiones = pendientes.filter((r) => r.fechaProgramada >= hoy && r.fechaProgramada <= en7dias)
 
   const pagoPorLink = ultimoPagoPorLink(pagos)
   const clientes = clientesBase.map((c) => ({
@@ -107,6 +113,7 @@ export async function getResumenEntrenador(trainerId: string): Promise<ResumenEn
     clientesTotal: aceptados.length,
     clientesActivos,
     proximasRevisiones,
+    revisionesVencidas,
     revisionesRecibidasEsteMes,
     clientesPendientesPago: clientesPendientes.map((c) => ({ clientId: c.clientId, nombre: c.nombre, amount: c.pago?.amount ?? null })),
     totalPendiente,
