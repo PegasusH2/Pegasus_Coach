@@ -12,7 +12,7 @@ import { MeasurementForm, type CampoMedicion } from '@/components/ui/Measurement
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
 import { formatFechaCorta, formatNumero, hoyIso } from '@/lib/format'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Minus, Pencil, Plus, Ruler, Trash2 } from 'lucide-react'
 import type { ProgresoTab, Route } from '@/lib/nav'
 import type { Measurement, TrackerMeasurementType } from '@/types'
 
@@ -158,7 +158,7 @@ export function Progreso({ tab, onNavigate }: { tab: ProgresoTab; onNavigate: (r
                 />
               </Card>
             )}
-            <MedicionesTabla mediciones={mediciones} campos={MEDIDAS} onEditar={setEditando} onBorrar={borrarMedicion} />
+            <MedicionesTabla mediciones={mediciones} campos={MEDIDAS} onEditar={setEditando} onBorrar={borrarMedicion} destacarValores />
             <MedidasTrackerSection />
           </div>
         )}
@@ -214,11 +214,15 @@ function MedicionesTabla({
   campos,
   onEditar,
   onBorrar,
+  destacarValores = false,
 }: {
   mediciones: Measurement[]
   campos: CampoMedicion[]
   onEditar: (m: Measurement) => void
   onBorrar: (id: string) => void
+  /** Da más peso visual a los valores frente a las cabeceras — solo se activa desde la
+   * pestaña Medidas (item 1 del rediseño); Pliegues sigue exactamente igual que antes. */
+  destacarValores?: boolean
 }) {
   const filas = [...(mediciones ?? [])].reverse()
   return (
@@ -227,7 +231,7 @@ function MedicionesTabla({
       <div className="max-h-72 overflow-x-auto overflow-y-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs text-text-secondary">
+            <tr className={`text-left text-xs ${destacarValores ? 'text-text-muted' : 'text-text-secondary'}`}>
               <th className="py-1 pr-3">Fecha</th>
               {campos.map((c) => (
                 <th key={c.key as string} className="py-1 pr-3">
@@ -242,7 +246,7 @@ function MedicionesTabla({
               <tr key={m.id} className="border-t border-bg-border">
                 <td className="py-2 pr-3 text-text-secondary">{formatFechaCorta(m.fecha)}</td>
                 {campos.map((c) => (
-                  <td key={c.key as string} className="py-2 pr-3">
+                  <td key={c.key as string} className={`py-2 pr-3 ${destacarValores ? 'font-semibold text-text-primary' : ''}`}>
                     {formatNumero((m as unknown as Record<string, number | null>)[c.key as string], 1)}
                   </td>
                 ))}
@@ -301,13 +305,14 @@ function MedidasTrackerSection() {
       <p className="mb-3 text-xs text-text-muted">
         Sistema aparte de las medidas de Nutrición de arriba — son los tipos de medida que el propio cliente define en Pegasus Tracker.
       </p>
-      <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {(tipos ?? []).map((t) => (
-          <TipoMedidaTrackerRow key={t.id} tipo={t} onChange={refetch} />
+          <TipoMedidaTrackerCard key={t.id} tipo={t} onChange={refetch} />
         ))}
-        {(tipos ?? []).length === 0 && <p className="text-sm text-text-muted">Este cliente todavía no tiene ningún tipo de medida en Tracker.</p>}
       </div>
-      <div className="mt-3 flex items-end gap-2">
+      {(tipos ?? []).length === 0 && <p className="text-sm text-text-muted">Este cliente todavía no tiene ningún tipo de medida en Tracker.</p>}
+
+      <div className="mt-4 flex items-end gap-2 border-t border-bg-border pt-4">
         <Field label="Nueva medida" value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)} placeholder="Ej. Cintura" />
         <Field label="Unidad" value={nuevaUnidad} onChange={(e) => setNuevaUnidad(e.target.value)} placeholder="cm" className="w-20" />
         <Button onClick={crearTipo} disabled={guardando || !nuevoNombre.trim()}>
@@ -320,11 +325,32 @@ function MedidasTrackerSection() {
   )
 }
 
-function TipoMedidaTrackerRow({ tipo, onChange }: { tipo: TrackerMeasurementType; onChange: () => void }) {
+/** Mini gráfica de tendencia, discreta — solo aparece con 2+ valores (con 0 o 1 no hay
+ * tendencia que mostrar). Mismo color/estilo de línea que WeightChart/SimpleLine, sin
+ * ejes ni tooltip: su único trabajo es responder "¿sube o baja?" de un vistazo. */
+function MiniTendencia({ valores }: { valores: { fecha: string; value: number }[] }) {
+  if (valores.length < 2) return null
+  return (
+    <div style={{ height: 28 }} className="mt-2">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={valores} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+          <Line type="monotone" dataKey="value" stroke="#e8383d" strokeWidth={1.5} dot={false} isAnimationActive={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+/** Antes una fila tipo "opción de configuración" (Cuello (cm)  Último: 34 cm · fecha) —
+ * ahora una tarjeta de progreso: el valor es lo primero que se lee, no la fecha ni el
+ * nombre. La variación se calcula igual que cambioPeso() en calculos.ts (última medición
+ * frente a la primera) — mismo criterio ya usado en la app, no una lógica nueva. */
+function TipoMedidaTrackerCard({ tipo, onChange }: { tipo: TrackerMeasurementType; onChange: () => void }) {
   const { data: valores, refetch } = useAsyncData(() => trackerMeasurementRepo.listMeasurementValues(tipo.id), [tipo.id])
   const [fecha, setFecha] = useState(hoyIso())
   const [valor, setValor] = useState('')
   const [abierto, setAbierto] = useState(false)
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false)
 
   async function anadir() {
     const num = Number(valor)
@@ -339,27 +365,61 @@ function TipoMedidaTrackerRow({ tipo, onChange }: { tipo: TrackerMeasurementType
     onChange()
   }
 
-  const ultimo = (valores ?? [])[valores && valores.length > 0 ? valores.length - 1 : 0]
+  const conValor = (valores ?? []).filter((v): v is typeof v & { value: number } => v.value != null)
+  const primero = conValor[0] ?? null
+  const ultimo = conValor[conValor.length - 1] ?? null
+  const variacion = primero && ultimo && primero.id !== ultimo.id ? ultimo.value - primero.value : null
 
   return (
-    <div className="rounded-control border border-bg-border bg-bg-panel/60 p-2.5 text-sm">
-      <div className="flex items-center justify-between">
-        <button onClick={() => setAbierto((v) => !v)} className="font-medium text-text-primary hover:text-pegasus-red">
-          {tipo.name} <span className="text-xs text-text-muted">({tipo.unit})</span>
+    <div className="rounded-control border border-bg-border bg-bg-panel/60 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <button
+          onClick={() => setAbierto((v) => !v)}
+          className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-secondary hover:text-pegasus-red"
+        >
+          <Ruler size={12} /> {tipo.name}
         </button>
-        <div className="flex items-center gap-3 text-xs text-text-muted">
-          {ultimo && (
-            <span>
-              Último: {formatNumero(ultimo.value, 1)} {tipo.unit} · {formatFechaCorta(ultimo.fecha)}
+        <div className="flex items-center gap-2">
+          {ultimo && <span className="text-[11px] text-text-muted">{formatFechaCorta(ultimo.fecha)}</span>}
+          {confirmandoBorrado ? (
+            <span className="flex items-center gap-1 text-[11px]">
+              <button onClick={borrarTipo} className="font-semibold text-pegasus-red hover:text-pegasus-redDark">
+                Sí
+              </button>
+              <button onClick={() => setConfirmandoBorrado(false)} className="text-text-muted hover:text-text-secondary">
+                No
+              </button>
             </span>
+          ) : (
+            <button onClick={() => setConfirmandoBorrado(true)} className="text-text-muted hover:text-pegasus-red" title="Eliminar tipo de medida">
+              <Trash2 size={12} />
+            </button>
           )}
-          <button onClick={borrarTipo} className="text-text-muted hover:text-pegasus-red" title="Eliminar tipo de medida">
-            <Trash2 size={13} />
-          </button>
         </div>
       </div>
+
+      {ultimo ? (
+        <>
+          <div className="text-2xl font-bold text-text-primary">
+            {formatNumero(ultimo.value, 1)} <span className="text-sm font-medium text-text-muted">{tipo.unit}</span>
+          </div>
+          {variacion != null ? (
+            <div className="mt-1 flex items-center gap-1 text-xs text-text-secondary">
+              {variacion > 0 ? <ArrowUp size={12} /> : variacion < 0 ? <ArrowDown size={12} /> : <Minus size={12} />}
+              <span>{variacion === 0 ? 'Sin cambios' : `${variacion > 0 ? '+' : ''}${formatNumero(variacion, 1)} ${tipo.unit}`}</span>
+              <span className="text-text-muted">respecto al inicio</span>
+            </div>
+          ) : (
+            <div className="mt-1 text-xs text-text-muted">Sin datos de comparación</div>
+          )}
+          <MiniTendencia valores={conValor} />
+        </>
+      ) : (
+        <div className="py-2 text-sm text-text-muted">Sin mediciones</div>
+      )}
+
       {abierto && (
-        <div className="mt-2 flex items-end gap-2 border-t border-bg-border pt-2">
+        <div className="mt-3 flex items-end gap-2 border-t border-bg-border pt-3">
           <Field label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
           <Field label={`Valor (${tipo.unit})`} type="number" value={valor} onChange={(e) => setValor(e.target.value)} />
           <Button onClick={anadir} disabled={!valor}>
