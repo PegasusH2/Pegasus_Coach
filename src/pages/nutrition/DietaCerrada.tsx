@@ -91,7 +91,7 @@ export function DietaCerrada({ distingueDias }: { distingueDias: boolean }) {
 
   if (!plan) {
     return (
-      <div className="max-w-5xl">
+      <div>
         <PageHeader title="Dieta cerrada" subtitle="Todavía no tienes un plan de nutrición asignado" />
         <p className="text-sm text-text-muted">En cuanto tu entrenador registre tu dieta, la verás aquí.</p>
       </div>
@@ -101,7 +101,7 @@ export function DietaCerrada({ distingueDias }: { distingueDias: boolean }) {
   const itemsDelDiaActivo = distingueDias ? (items ?? []).filter((i) => i.diaTipo === diaTipo.toLowerCase()) : (items ?? [])
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <PageHeader
         title="Dieta cerrada"
         subtitle={`Dieta activa desde ${formatFechaCorta(plan.fecha)}`}
@@ -126,7 +126,8 @@ function iconoParaMomento(index: number) {
 }
 
 function DietaCerradaEntrenador({ distingueDias }: { distingueDias: boolean }) {
-  const { session, targetUserId } = useSession()
+  const { session, targetUserId, profile } = useSession()
+  const esEntrenador = profile?.role === 'entrenador'
   const { diaTipo, setDiaTipo } = useDiaTipo()
   const { data: plan, refetch: refetchPlan } = useActiveClosedDietPlan()
   const { data: itemsPlan, refetch: refetchItems } = useClosedDietItems(plan?.id ?? null)
@@ -288,8 +289,12 @@ function DietaCerradaEntrenador({ distingueDias }: { distingueDias: boolean }) {
   const version = plan && historial ? numeroVersion(historial, plan.id) : null
 
   return (
-    <div className="max-w-6xl">
-      <PageHeader title="Dieta cerrada" subtitle="Plan de alimentación del cliente — control total del entrenador" />
+    <div>
+      {/* Sin cliente/entrenador esto siempre se ve dentro de la Ficha de cliente
+          (Nutrición → Dieta cerrada), que ya trae su propio encabezado y pestañas
+          — el título solo se muestra cuando un cliente sin entrenador gestiona su
+          propia dieta desde la pantalla suelta. */}
+      {!esEntrenador && <PageHeader title="Dieta cerrada" subtitle="Plan de alimentación del cliente — control total del entrenador" />}
 
       {/* Cabecera de la dieta */}
       <Card className="mb-4">
@@ -402,7 +407,7 @@ function DietaCerradaEntrenador({ distingueDias }: { distingueDias: boolean }) {
         <div className="flex flex-col gap-4">
           <Card>
             <CardLabel>Plan de alimentación</CardLabel>
-            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {grupos.map((g, i) => (
                 <ComidaCard
                   key={g.momento ?? `sin-horario-${i}`}

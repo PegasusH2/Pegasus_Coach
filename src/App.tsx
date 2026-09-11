@@ -138,7 +138,7 @@ function AppShell() {
             {route.section === 'macros' && profile.role !== 'entrenador' && <Macros />}
             {route.section === 'peso' && profile.role !== 'entrenador' && <Peso />}
             {route.section === 'progreso' && profile.role !== 'entrenador' && (
-              <Progreso tab={route.progresoTab ?? 'evolucion'} onNavigate={setRoute} />
+              <Progreso tab={route.progresoTab ?? 'peso'} onNavigate={setRoute} />
             )}
             {route.section === 'clientes' && profile.role === 'entrenador' && <Clientes onNavigate={setRoute} />}
             {route.section === 'ficha' && profile.role === 'entrenador' && (

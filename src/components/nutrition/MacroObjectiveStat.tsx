@@ -28,7 +28,7 @@ export function MacroObjectiveStat({ label, tono, objetivoG, objetivoPorKg, cons
     <div>
       <div className="text-xs text-text-secondary">{label}</div>
       <div className={`text-xl font-bold ${texto}`}>{formatNumero(objetivoG, 0)} g</div>
-      <div className="text-xs text-text-muted">{formatNumero(objetivoPorKg, 1)} g/kg</div>
+      <div className="text-xs text-text-muted">{formatNumero(objetivoPorKg, 2)} g/kg</div>
       {hayConsumoReal && (
         <div className="mt-2">
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-panel">

@@ -31,7 +31,6 @@ const PROGRESO_TABS: { key: NonNullable<Route['progresoTab']>; label: string }[]
   { key: 'peso', label: 'Peso' },
   { key: 'medidas', label: 'Medidas' },
   { key: 'pliegues', label: 'Pliegues' },
-  { key: 'evolucion', label: 'Evolución' },
 ]
 
 function NavItem({
@@ -67,7 +66,7 @@ export function Sidebar({ route, onNavigate, nombrePerfil, rol, onCerrarSesion, 
   const mostrarSeguimientoPersonal = rol !== 'entrenador'
 
   const irA = (section: Section) => {
-    if (section === 'progreso') onNavigate({ section, progresoTab: route.progresoTab ?? 'evolucion' })
+    if (section === 'progreso') onNavigate({ section, progresoTab: route.progresoTab ?? 'peso' })
     else onNavigate({ section })
   }
 

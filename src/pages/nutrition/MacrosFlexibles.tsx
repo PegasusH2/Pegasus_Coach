@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useActiveMacroPlan } from '@/hooks/useData'
+import { useActiveMacroPlan, useTargetProfile } from '@/hooks/useData'
 import { calcularMacroPlan } from '@/lib/calculos'
 import { useSession } from '@/lib/SessionContext'
 import { createMacroPlan, updateMacroPlan } from '@/lib/supabase/macroPlanRepo'
@@ -59,6 +59,7 @@ export function MacrosFlexibles() {
       setGuardandoPreferencia(false)
     }
   }
+  const { data: targetProfile } = useTargetProfile()
   const { data: plan, refetch } = useActiveMacroPlan()
   const [form, setForm] = useState<MacroPlanInput>(emptyForm(targetUserId ?? ''))
   const [guardando, setGuardando] = useState(false)
@@ -148,10 +149,15 @@ export function MacrosFlexibles() {
 
   return (
     <div>
-      <PageHeader
-        title="Macros"
-        subtitle={plan ? `Plan activo desde ${formatFechaCorta(plan.fecha)}` : 'Todavía no hay ningún plan de macros'}
-      />
+      {/* Sin cliente/entrenador este contenido siempre se ve dentro de la Ficha de
+          cliente (Nutrición → Macros), que ya trae su propio encabezado y pestañas —
+          el título "Macros" solo se muestra en la pantalla suelta del cliente. */}
+      {!esEntrenador && (
+        <PageHeader
+          title="Macros"
+          subtitle={plan ? `Plan activo desde ${formatFechaCorta(plan.fecha)}` : 'Todavía no hay ningún plan de macros'}
+        />
+      )}
 
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         <MacroDayCard
@@ -222,14 +228,6 @@ export function MacrosFlexibles() {
                 onChange={(e) => set('porcentajeGraso', num(e.target.value))}
               />
             </div>
-
-            {esEntrenador && (
-              <RecomendacionesMacrosSexoToggle
-                checked={trainerSettings?.mostrarRecomendacionesMacrosPorSexo ?? false}
-                disabled={guardandoPreferencia}
-                onChange={toggleRecomendacionesSexo}
-              />
-            )}
           </Card>
 
           <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -266,6 +264,17 @@ export function MacrosFlexibles() {
               </div>
             </Card>
           </div>
+
+          {esEntrenador && (
+            <Card className="mt-2">
+              <RecomendacionesMacrosSexoToggle
+                checked={trainerSettings?.mostrarRecomendacionesMacrosPorSexo ?? false}
+                disabled={guardandoPreferencia}
+                onChange={toggleRecomendacionesSexo}
+                sexo={targetProfile?.sexo}
+              />
+            </Card>
+          )}
 
           <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button variant="secondary" onClick={registrarNuevaRevision} disabled={guardando} className="w-full sm:w-auto">

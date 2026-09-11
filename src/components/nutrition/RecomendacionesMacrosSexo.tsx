@@ -2,6 +2,7 @@
 // entre MacrosFlexibles.tsx (configuración de un plan real) y CalculadoraMacros.tsx
 // (cálculo suelto), para no duplicar el contenido ni el estilo. Puramente
 // informativo: no alimenta ningún cálculo, solo se muestra/oculta.
+import type { Sexo } from '@/types'
 
 /** Mismo estilo que el resto de la tarjeta "General" (borde + bg-panel), sin colores nuevos. */
 function BloqueRecomendacion({ titulo, filas }: { titulo: string; filas: [string, string][] }) {
@@ -33,14 +34,27 @@ const RECOMENDACION_GANANCIA: [string, string][] = [
   ['Calorías', 'Superávit 5–15%'],
 ]
 
-function LeyendaRecomendacionesSexo() {
+/** Si se conoce el sexo del cliente (hombre/mujer) solo se muestran sus dos bloques
+ * — si no (otro/prefiero no decir/sin dato), se muestran los cuatro como antes,
+ * porque no hay forma de saber cuál aplica. */
+function LeyendaRecomendacionesSexo({ sexo }: { sexo?: Sexo | null }) {
+  const mostrarHombre = sexo == null || sexo === 'hombre'
+  const mostrarMujer = sexo == null || sexo === 'mujer'
   return (
     <div className="mt-2 border-t border-bg-border pt-2">
       <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-        <BloqueRecomendacion titulo="Hombre — Pérdida de grasa" filas={RECOMENDACION_PERDIDA} />
-        <BloqueRecomendacion titulo="Hombre — Ganancia muscular" filas={RECOMENDACION_GANANCIA} />
-        <BloqueRecomendacion titulo="Mujer — Pérdida de grasa" filas={RECOMENDACION_PERDIDA} />
-        <BloqueRecomendacion titulo="Mujer — Ganancia muscular" filas={RECOMENDACION_GANANCIA} />
+        {mostrarHombre && (
+          <>
+            <BloqueRecomendacion titulo="Hombre — Pérdida de grasa" filas={RECOMENDACION_PERDIDA} />
+            <BloqueRecomendacion titulo="Hombre — Ganancia muscular" filas={RECOMENDACION_GANANCIA} />
+          </>
+        )}
+        {mostrarMujer && (
+          <>
+            <BloqueRecomendacion titulo="Mujer — Pérdida de grasa" filas={RECOMENDACION_PERDIDA} />
+            <BloqueRecomendacion titulo="Mujer — Ganancia muscular" filas={RECOMENDACION_GANANCIA} />
+          </>
+        )}
       </div>
       <p className="mt-1.5 text-xs text-text-muted">
         Las recomendaciones se calculan principalmente según peso, actividad y objetivo. El sexo se utiliza para
@@ -54,10 +68,15 @@ export function RecomendacionesMacrosSexoToggle({
   checked,
   onChange,
   disabled,
+  sexo,
 }: {
   checked: boolean
   onChange: (valor: boolean) => void
   disabled?: boolean
+  /** Sexo del cliente al que aplica esta configuración — si se indica ('hombre'/'mujer'),
+   * la leyenda solo muestra ese bloque. Sin indicar (p.ej. la Calculadora suelta, sin
+   * cliente asociado) se muestran los cuatro. */
+  sexo?: Sexo | null
 }) {
   return (
     <>
@@ -65,7 +84,7 @@ export function RecomendacionesMacrosSexoToggle({
         <input type="checkbox" className="accent-pegasus-red" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
         Aplicar recomendaciones de macros según sexo
       </label>
-      {checked && <LeyendaRecomendacionesSexo />}
+      {checked && <LeyendaRecomendacionesSexo sexo={sexo} />}
     </>
   )
 }

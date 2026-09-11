@@ -271,11 +271,12 @@ function DatosTab({ onDesvinculado }: { onDesvinculado: () => void }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Bloque 1 — Resumen: mismos 3 datos de siempre (peso actual/altura/%graso),
-          solo con más peso visual (icono + número grande) al ser lo primero que se lee. */}
+      {/* Bloque 1 — Resumen: peso actual/inicial/altura/%graso, con más peso visual
+          (icono + número grande) al ser lo primero que se lee. */}
       <Card>
-        <div className="grid grid-cols-3 divide-x divide-bg-border">
+        <div className="grid grid-cols-4 divide-x divide-bg-border">
           <ResumenStat icon={<Scale size={18} />} label="Peso actual" value={pesoActual != null ? `${formatNumero(pesoActual, 1)} kg` : '—'} />
+          <ResumenStat icon={<Scale size={18} />} label="Peso inicial" value={pesoInicial != null ? `${formatNumero(pesoInicial, 1)} kg` : '—'} />
           <ResumenStat icon={<Ruler size={18} />} label="Altura" value={perfil.altura != null ? `${formatNumero(perfil.altura, 0)} cm` : '—'} />
           <ResumenStat
             icon={<Percent size={18} />}
@@ -285,44 +286,27 @@ function DatosTab({ onDesvinculado }: { onDesvinculado: () => void }) {
         </div>
       </Card>
 
-      {/* Bloque 2 — Información del cliente: mismo ancho (completo, sin dividir en
-          50/50), Información personal arriba y Datos físicos debajo — misma medida
-          por fila (divide-x en línea) que la tira de Peso actual/Altura/%graso de
-          arriba. */}
-      <div className="flex flex-col gap-3">
-        <Card>
-          <CardLabel>Información personal</CardLabel>
-          <div className="grid grid-cols-4 divide-x divide-bg-border text-sm">
-            <div className="px-4 first:pl-0 last:pr-0">
-              <Stat label="Nombre" value={perfil.nombre} />
-            </div>
-            <div className="px-4 first:pl-0 last:pr-0">
-              <Stat label="Edad" value={edad != null ? `${edad} años` : '—'} />
-            </div>
-            <div className="px-4 first:pl-0 last:pr-0">
-              <Stat label="Sexo" value={sexoLabel(perfil.sexo) ?? '—'} />
-            </div>
-            <div className="px-4 first:pl-0 last:pr-0">
-              <Stat label="Email" value={perfil.email ?? '—'} />
-            </div>
+      {/* Bloque 2 — Información del cliente: mismo ancho que la tira de arriba,
+          misma medida por fila (divide-x en línea). Datos físicos oculto — Peso
+          inicial ya se muestra en el resumen y Peso actual/Última medición se
+          pueden consultar en Progreso. */}
+      <Card>
+        <CardLabel>Información personal</CardLabel>
+        <div className="grid grid-cols-4 divide-x divide-bg-border text-sm">
+          <div className="px-4 first:pl-0 last:pr-0">
+            <Stat label="Nombre" value={perfil.nombre} />
           </div>
-        </Card>
-
-        <Card>
-          <CardLabel>Datos físicos</CardLabel>
-          <div className="grid grid-cols-3 divide-x divide-bg-border text-sm">
-            <div className="px-4 first:pl-0 last:pr-0">
-              <Stat label="Peso inicial" value={pesoInicial != null ? `${formatNumero(pesoInicial, 1)} kg` : '—'} />
-            </div>
-            <div className="px-4 first:pl-0 last:pr-0">
-              <Stat label="Peso actual" value={pesoActual != null ? `${formatNumero(pesoActual, 1)} kg` : '—'} />
-            </div>
-            <div className="px-4 first:pl-0 last:pr-0">
-              <Stat label="Última medición" value={ultimaMedicion ? formatFechaCorta(ultimaMedicion.fecha) : '—'} />
-            </div>
+          <div className="px-4 first:pl-0 last:pr-0">
+            <Stat label="Edad" value={edad != null ? `${edad} años` : '—'} />
           </div>
-        </Card>
-      </div>
+          <div className="px-4 first:pl-0 last:pr-0">
+            <Stat label="Sexo" value={sexoLabel(perfil.sexo) ?? '—'} />
+          </div>
+          <div className="px-4 first:pl-0 last:pr-0">
+            <Stat label="Email" value={perfil.email ?? '—'} />
+          </div>
+        </div>
+      </Card>
 
       {/* Bloque 3 — Objetivos: solo tiene sentido con Macros — con Dieta cerrada no
           hay gramos/kcal objetivo que mostrar, así que la fila entera desaparece. */}

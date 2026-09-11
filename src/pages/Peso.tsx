@@ -93,94 +93,100 @@ export function PesoContenido() {
         </Card>
       </div>
 
-      <Card>
-        <CardLabel>Evolución</CardLabel>
-        <WeightChart entries={pesos} height={200} />
-      </Card>
+      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+        <Card className="flex flex-col">
+          <CardLabel>Evolución</CardLabel>
+          <div className="min-h-0 flex-1">
+            <WeightChart entries={pesos} height="100%" />
+          </div>
+        </Card>
 
-      <Card>
-        <CardLabel>Registrar peso</CardLabel>
-        <div className="flex items-end gap-3">
-          <Field label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-          <Field label="Peso" type="number" suffix="kg" value={peso} onChange={(e) => setPeso(e.target.value)} placeholder="80.5" />
-          <Button onClick={registrar} disabled={guardando}>
-            Añadir
-          </Button>
-        </div>
-      </Card>
+        <div className="flex flex-col gap-2">
+          <Card>
+            <CardLabel>Registrar peso</CardLabel>
+            <div className="flex items-end gap-3">
+              <Field label="Fecha" type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+              <Field label="Peso" type="number" suffix="kg" value={peso} onChange={(e) => setPeso(e.target.value)} placeholder="80.5" />
+              <Button onClick={registrar} disabled={guardando}>
+                Añadir
+              </Button>
+            </div>
+          </Card>
 
-      <Card>
-        <div className="flex items-center justify-between">
-          <CardLabel>Histórico</CardLabel>
-          <button
-            onClick={() => exportarPesoExcel(pesos)}
-            disabled={pesos.length === 0}
-            className="flex items-center gap-1.5 text-xs font-semibold text-pegasus-red hover:text-pegasus-redDark disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Download size={13} /> Exportar a Excel
-          </button>
+          <Card>
+            <div className="flex items-center justify-between">
+              <CardLabel>Histórico</CardLabel>
+              <button
+                onClick={() => exportarPesoExcel(pesos)}
+                disabled={pesos.length === 0}
+                className="flex items-center gap-1.5 text-xs font-semibold text-pegasus-red hover:text-pegasus-redDark disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Download size={13} /> Exportar a Excel
+              </button>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              <table className="w-full text-sm">
+                <tbody>
+                  {[...pesos].reverse().map((e) =>
+                    editando?.id === e.id ? (
+                      <tr key={e.id} className="border-b border-bg-border bg-bg-panel/60 last:border-0">
+                        <td className="py-2 pr-2">
+                          <input
+                            type="date"
+                            value={editando.fecha}
+                            onChange={(ev) => setEditando({ ...editando, fecha: ev.target.value })}
+                            className="w-full rounded-control border border-bg-border bg-bg-panel px-2 py-1 text-sm text-text-primary outline-none focus:border-pegasus-red"
+                          />
+                        </td>
+                        <td className="py-2 pr-2">
+                          <input
+                            type="number"
+                            value={editando.pesoKg}
+                            onChange={(ev) => setEditando({ ...editando, pesoKg: Number(ev.target.value) })}
+                            className="w-20 rounded-control border border-bg-border bg-bg-panel px-2 py-1 text-sm text-text-primary outline-none focus:border-pegasus-red"
+                          />
+                        </td>
+                        <td className="py-2 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={guardarEdicion} disabled={guardando} className="text-xs font-semibold text-pegasus-red hover:text-pegasus-redDark">
+                              Guardar
+                            </button>
+                            <button onClick={() => setEditando(null)} className="text-xs text-text-muted hover:text-text-secondary">
+                              Cancelar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr key={e.id} className="border-b border-bg-border last:border-0">
+                        <td className="py-2 text-text-secondary">{formatFechaCorta(e.fecha)}</td>
+                        <td className="py-2 font-medium">{formatNumero(e.pesoKg, 1)} kg</td>
+                        <td className="py-2 text-right">
+                          <div className="flex justify-end gap-3">
+                            <button onClick={() => setEditando(e)} className="text-text-muted hover:text-pegasus-red">
+                              <Pencil size={14} />
+                            </button>
+                            <button onClick={() => eliminar(e.id)} className="text-text-muted hover:text-pegasus-red">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                  {pesos.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="py-6 text-center text-text-muted">
+                        Todavía no hay registros de peso.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </div>
-        <div className="max-h-64 overflow-y-auto">
-          <table className="w-full text-sm">
-            <tbody>
-              {[...pesos].reverse().map((e) =>
-                editando?.id === e.id ? (
-                  <tr key={e.id} className="border-b border-bg-border bg-bg-panel/60 last:border-0">
-                    <td className="py-2 pr-2">
-                      <input
-                        type="date"
-                        value={editando.fecha}
-                        onChange={(ev) => setEditando({ ...editando, fecha: ev.target.value })}
-                        className="w-full rounded-control border border-bg-border bg-bg-panel px-2 py-1 text-sm text-text-primary outline-none focus:border-pegasus-red"
-                      />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <input
-                        type="number"
-                        value={editando.pesoKg}
-                        onChange={(ev) => setEditando({ ...editando, pesoKg: Number(ev.target.value) })}
-                        className="w-20 rounded-control border border-bg-border bg-bg-panel px-2 py-1 text-sm text-text-primary outline-none focus:border-pegasus-red"
-                      />
-                    </td>
-                    <td className="py-2 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={guardarEdicion} disabled={guardando} className="text-xs font-semibold text-pegasus-red hover:text-pegasus-redDark">
-                          Guardar
-                        </button>
-                        <button onClick={() => setEditando(null)} className="text-xs text-text-muted hover:text-text-secondary">
-                          Cancelar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={e.id} className="border-b border-bg-border last:border-0">
-                    <td className="py-2 text-text-secondary">{formatFechaCorta(e.fecha)}</td>
-                    <td className="py-2 font-medium">{formatNumero(e.pesoKg, 1)} kg</td>
-                    <td className="py-2 text-right">
-                      <div className="flex justify-end gap-3">
-                        <button onClick={() => setEditando(e)} className="text-text-muted hover:text-pegasus-red">
-                          <Pencil size={14} />
-                        </button>
-                        <button onClick={() => eliminar(e.id)} className="text-text-muted hover:text-pegasus-red">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ),
-              )}
-              {pesos.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="py-6 text-center text-text-muted">
-                    Todavía no hay registros de peso.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      </div>
     </div>
   )
 }
