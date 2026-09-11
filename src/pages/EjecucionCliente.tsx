@@ -70,8 +70,8 @@ export function EjecucionCliente() {
   const rutina = dia?.routineId ? (rutinas ?? []).find((r) => r.id === dia.routineId) : null
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.6fr_1fr]">
-      <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.6fr_1fr]">
+      <div className="flex flex-col gap-3">
         <EjecucionHeader workout={actual} diaNombre={dia?.name ?? null} rutinaNombre={rutina?.name ?? null} />
         <ResumenSuperior workout={actual} />
         {vistaCompleta ? (
@@ -81,7 +81,7 @@ export function EjecucionCliente() {
         )}
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <HistorialRutina workoutActual={actual} onSeleccionar={setWorkoutIdSeleccionado} />
       </div>
     </div>

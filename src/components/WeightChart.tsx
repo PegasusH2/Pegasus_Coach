@@ -2,7 +2,7 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'rec
 import type { WeightEntry } from '@/types'
 import { formatFechaCorta } from '@/lib/format'
 
-export function WeightChart({ entries, height = 220 }: { entries: WeightEntry[]; height?: number }) {
+export function WeightChart({ entries, height = 220 }: { entries: WeightEntry[]; height?: number | string }) {
   const data = [...entries]
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
     .map((e) => ({ fecha: e.fecha, peso: e.pesoKg }))

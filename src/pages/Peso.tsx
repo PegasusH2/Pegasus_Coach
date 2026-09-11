@@ -71,8 +71,8 @@ export function PesoContenido() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-4 gap-4">
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-4 gap-2">
         <Card>
           <CardLabel>Actual</CardLabel>
           <div className="text-2xl font-bold">{formatNumero(resumen.actual, 1)} kg</div>
@@ -95,7 +95,7 @@ export function PesoContenido() {
 
       <Card>
         <CardLabel>Evolución</CardLabel>
-        <WeightChart entries={pesos} height={260} />
+        <WeightChart entries={pesos} height={200} />
       </Card>
 
       <Card>

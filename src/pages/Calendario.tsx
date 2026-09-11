@@ -4,10 +4,10 @@
 // pinta esos mismos eventos en una vista de mes en vez de una tabla plana, y
 // permite crear uno nuevo para cualquier cliente vinculado.
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, ClipboardCheck, Dumbbell } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ClipboardCheck, Dumbbell, Trash2 } from 'lucide-react'
 import { useAsyncData } from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
-import { createReview, listReviewsByTrainer, updateReviewEstado } from '@/lib/supabase/reviewRepo'
+import { createReview, deleteReview, listReviewsByTrainer, updateReviewEstado } from '@/lib/supabase/reviewRepo'
 import { listAsTrainer } from '@/lib/supabase/trainerRepo'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -21,6 +21,40 @@ const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ]
+
+/** Botón de borrar con confirmación inline — mismo patrón (sin modal) que ya usa el
+ * resto de Coach (BotonDesvincular en FichaCliente.tsx, BotonBorrar en
+ * EntrenamientoCliente.tsx) para no introducir un sistema de modales nuevo. */
+function BotonEliminarEvento({ onConfirm }: { onConfirm: () => Promise<void> }) {
+  const [confirmando, setConfirmando] = useState(false)
+  const [borrando, setBorrando] = useState(false)
+
+  if (confirmando) {
+    return (
+      <span className="flex items-center gap-1.5 text-xs">
+        <span className="text-text-muted">¿Seguro?</span>
+        <button
+          onClick={async () => {
+            setBorrando(true)
+            await onConfirm()
+          }}
+          disabled={borrando}
+          className="font-semibold text-pegasus-red hover:text-pegasus-redDark disabled:opacity-50"
+        >
+          Sí, eliminar
+        </button>
+        <button onClick={() => setConfirmando(false)} className="text-text-muted hover:text-text-secondary">
+          Cancelar
+        </button>
+      </span>
+    )
+  }
+  return (
+    <button onClick={() => setConfirmando(true)} className="text-text-muted hover:text-pegasus-red" title="Eliminar">
+      <Trash2 size={14} />
+    </button>
+  )
+}
 
 /** Celdas del mes (año/mes en base 0) — null para el relleno antes del día 1,
  * ISO 'YYYY-MM-DD' para cada día real. Semana de lunes a domingo. */
@@ -192,6 +226,11 @@ function PanelDia({
     await onChange()
   }
 
+  async function eliminar(id: string) {
+    await deleteReview(id)
+    await onChange()
+  }
+
   return (
     <Card className="mt-4">
       <CardLabel>{fechaLabel}</CardLabel>
@@ -223,6 +262,7 @@ function PanelDia({
                   {r.estado === 'pendiente' ? 'Marcar recibida' : 'Marcar revisada'}
                 </Button>
               )}
+              <BotonEliminarEvento onConfirm={() => eliminar(r.id)} />
             </div>
           </div>
         ))}

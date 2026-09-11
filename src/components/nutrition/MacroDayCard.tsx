@@ -40,10 +40,10 @@ export function MacroDayCard({
         <span className="text-4xl font-bold">{formatNumero(kcal, 0)}</span>
         <span className="text-sm text-text-secondary">kcal objetivo</span>
       </div>
-      <div className="mb-4 text-xs text-text-muted">
+      <div className="mb-3 text-xs text-text-muted">
         {consumoKcal != null ? `${formatNumero(consumoKcal, 0)} kcal registradas hoy` : 'Sin registro de consumo'}
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         <MacroObjectiveStat label="Proteína" tono="protein" objetivoG={proteina} objetivoPorKg={proteinaPorKg} />
         <MacroObjectiveStat label="Hidratos" tono="carbs" objetivoG={hidratos} objetivoPorKg={hidratosPorKg} />
         <MacroObjectiveStat label="Grasas" tono="fat" objetivoG={grasas} objetivoPorKg={grasasPorKg} />

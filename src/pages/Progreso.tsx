@@ -116,7 +116,7 @@ export function Progreso({ tab, onNavigate }: { tab: ProgresoTab; onNavigate: (r
     <div className="max-w-4xl">
       <PageHeader title="Progreso" subtitle="Peso, medidas, pliegues y evolución general" />
 
-      <div className="mb-5 flex gap-1 rounded-control bg-bg-panel p-1 w-fit">
+      <div className="mb-3 flex gap-1 rounded-control bg-bg-panel p-1 w-fit">
         {(
           [
             { key: 'peso', label: 'Peso' },
@@ -141,7 +141,7 @@ export function Progreso({ tab, onNavigate }: { tab: ProgresoTab; onNavigate: (r
         {tab === 'peso' && <PesoContenido />}
 
         {tab === 'medidas' && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             {targetUserId && (
               <Card>
                 <CardLabel>{editando ? 'Editar medición' : 'Registrar perímetros corporales'}</CardLabel>
@@ -164,7 +164,7 @@ export function Progreso({ tab, onNavigate }: { tab: ProgresoTab; onNavigate: (r
         )}
 
         {tab === 'pliegues' && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
             {targetUserId && (
               <Card>
                 <CardLabel>{editando ? 'Editar medición' : 'Registrar pliegues cutáneos (7 sitios) y % graso'}</CardLabel>
@@ -312,7 +312,7 @@ function MedidasTrackerSection() {
       </div>
       {(tipos ?? []).length === 0 && <p className="text-sm text-text-muted">Este cliente todavía no tiene ningún tipo de medida en Tracker.</p>}
 
-      <div className="mt-4 flex items-end gap-2 border-t border-bg-border pt-4">
+      <div className="mt-2 flex items-end gap-2 border-t border-bg-border pt-2">
         <Field label="Nueva medida" value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)} placeholder="Ej. Cintura" />
         <Field label="Unidad" value={nuevaUnidad} onChange={(e) => setNuevaUnidad(e.target.value)} placeholder="cm" className="w-20" />
         <Button onClick={crearTipo} disabled={guardando || !nuevoNombre.trim()}>

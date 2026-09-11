@@ -37,6 +37,7 @@ const DEFAULTS: Omit<TrainerSettings, 'id' | 'updatedAt'> = {
   startScreen: 'inicio',
   dateFormat: 'dd/mm/yyyy',
   exportFormat: 'json',
+  mostrarRecomendacionesMacrosPorSexo: false,
 }
 
 /** Si el entrenador no ha guardado nada todavía no existe fila — se devuelven los

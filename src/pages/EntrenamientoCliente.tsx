@@ -47,7 +47,7 @@ function BotonBorrar({ onConfirm, label = 'Eliminar' }: { onConfirm: () => void;
 export function EntrenamientoCliente() {
   const [sub, setSub] = useState<'ejecucion' | 'planificacion'>('ejecucion')
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       <div className="flex gap-1 rounded-control bg-bg-panel p-1 w-fit">
         {(
           [
@@ -123,8 +123,8 @@ function PlanificacionView() {
   const diasSueltos = (templates ?? []).filter((t) => !t.routineId)
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
-      <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1.3fr_1fr]">
+      <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <CardLabel icon={<ListChecks size={13} />}>Rutinas asignadas</CardLabel>
           <Button variant="secondary" onClick={() => setGestorAbierto(true)}>
@@ -326,7 +326,7 @@ function RutinaDetailView({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       <button onClick={onVolver} className="flex w-fit items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary">
         <ArrowLeft size={15} /> Volver a rutinas
       </button>
@@ -352,7 +352,7 @@ function RutinaDetailView({
         </button>
       )}
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         {dias.map((dia) => (
           <DiaCard
             key={dia.id}
@@ -482,7 +482,7 @@ function GestorEntrenos({
   )
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       <button onClick={onVolver} className="flex w-fit items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary">
         <ArrowLeft size={15} /> Volver a Planificación
       </button>
@@ -510,7 +510,7 @@ function GestorEntrenos({
 
       <Field label="Buscar rutina" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar rutina…" />
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
         {listado.map((r) => {
           const dias = templates.filter((t) => t.routineId === r.id)
           return (

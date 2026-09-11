@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Check, ClipboardCheck, Dumbbell } from 'lucide-react'
+import { ArrowLeft, Check, ChevronRight, ClipboardCheck, Dumbbell, Percent, Ruler, Scale, Search } from 'lucide-react'
 import {
   useActiveMacroPlan,
   useAsyncData,
@@ -14,20 +14,21 @@ import { useSession } from '@/lib/SessionContext'
 import { createReview, updateReviewEstado } from '@/lib/supabase/reviewRepo'
 import { createPayment } from '@/lib/supabase/paymentRepo'
 import { listServicePrices } from '@/lib/supabase/trainerSettingsRepo'
-import { updateLinkOverrides } from '@/lib/supabase/trainerRepo'
+import { listAsTrainer, revokeLink, updateLinkOverrides } from '@/lib/supabase/trainerRepo'
 import { Avatar } from '@/components/ui/Avatar'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { TipoNutricionCard } from '@/components/ui/TipoNutricionCard'
+import { MacroDayCard } from '@/components/nutrition/MacroDayCard'
+import { PanelAccionesRapidas } from '@/components/PanelAccionesRapidas'
 import { Macros } from './Macros'
 import { Progreso } from './Progreso'
 import { EntrenamientoCliente } from './EntrenamientoCliente'
 import { WeightChart } from '@/components/WeightChart'
 import { formatFechaCorta, formatFechaRelativa, formatNumero, hoyIso } from '@/lib/format'
 import { calcularEdad, calcularMacroPlan } from '@/lib/calculos'
-import { rolLabel, sexoLabel } from '@/lib/supabase/profileRepo'
-import { revokeLink } from '@/lib/supabase/trainerRepo'
+import { sexoLabel } from '@/lib/supabase/profileRepo'
 import type { FichaTab, ProgresoTab, Route } from '@/lib/nav'
 import type { EstadoRevision, TipoRevision } from '@/types'
 
@@ -42,7 +43,7 @@ const TABS: { key: FichaTab; label: string }[] = [
 
 export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (r: Route) => void }) {
   const { clienteActivo, setClienteActivo, trainerSettings } = useSession()
-  const { data: perfilCliente, refetch: refetchPerfilCliente } = useTargetProfile()
+  const { data: perfilCliente } = useTargetProfile()
   const [progresoTab, setProgresoTab] = useState<ProgresoTab>('peso')
   // Ajustes → Nutrición → "Activar nutrición": oculta la pestaña sin borrar
   // ningún plan/dato ya existente del cliente (trainerSettings.nutritionEnabled).
@@ -53,13 +54,16 @@ export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (
     onNavigate({ section: 'inicio' })
   }
 
+  useEffect(() => {
+    if (!clienteActivo) volver()
+  }, [clienteActivo])
+
   if (!clienteActivo) {
-    volver()
     return null
   }
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <button onClick={volver} className="mb-4 flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary">
         <ArrowLeft size={15} /> Volver a mis clientes
       </button>
@@ -86,27 +90,92 @@ export function FichaCliente({ tab, onNavigate }: { tab: FichaTab; onNavigate: (
         ))}
       </div>
 
-      <div key={tab} className="tab-fade">
-        {tab === 'datos' && <DatosTab onDesvinculado={volver} />}
-        {tab === 'macros' && perfilCliente && (
-          <div className="flex flex-col gap-4">
-            <TipoNutricionCard
-              userId={clienteActivo.id}
-              tipoActual={perfilCliente.tipoDieta}
-              distingueDiasActual={perfilCliente.dietaCerradaDistingueDias}
-              bloqueado={false}
-              nombreCliente={clienteActivo.nombre}
-              onGuardado={refetchPerfilCliente}
-            />
-            <Macros key={perfilCliente.tipoDieta} />
-          </div>
-        )}
-        {tab === 'progreso' && <Progreso tab={progresoTab} onNavigate={(r) => setProgresoTab(r.progresoTab ?? 'peso')} />}
-        {tab === 'entrenamiento' && <EntrenamientoCliente />}
-        {tab === 'revisiones' && <RevisionesTab />}
-        {tab === 'pagos' && <PagosTab />}
+      {/* A partir de aquí, misma rejilla contenido+columna derecha que ya usa
+          Inicio.tsx (DashboardEntrenador) — la columna derecha arranca a la altura
+          del contenido de la pestaña, no de la cabecera/pestañas de arriba. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px] lg:items-start">
+        <div key={tab} className="tab-fade min-w-0">
+          {tab === 'datos' && <DatosTab onDesvinculado={volver} />}
+          {tab === 'macros' && perfilCliente && (
+            <div className="flex flex-col gap-4">
+              <Macros key={perfilCliente.tipoDieta} />
+            </div>
+          )}
+          {tab === 'progreso' && <Progreso tab={progresoTab} onNavigate={(r) => setProgresoTab(r.progresoTab ?? 'peso')} />}
+          {tab === 'entrenamiento' && <EntrenamientoCliente />}
+          {tab === 'revisiones' && <RevisionesTab />}
+          {tab === 'pagos' && <PagosTab />}
+        </div>
+
+        <div className="flex flex-col gap-4 lg:sticky lg:top-4">
+          <PanelClientes
+            clienteActivoId={clienteActivo.id}
+            onCambiarCliente={(c) => {
+              setClienteActivo(c)
+              onNavigate({ section: 'ficha', fichaTab: tab })
+            }}
+          />
+          <PanelAccionesRapidas onNavigate={onNavigate} />
+        </div>
       </div>
     </div>
+  )
+}
+
+/** Buscador de clientes en la columna derecha — visible en las 6 pestañas de la
+ * ficha, para cambiar de cliente sin volver antes a "Mis clientes". Mismo patrón
+ * de búsqueda que ya usa el dashboard del entrenador (Inicio.tsx). */
+function PanelClientes({
+  clienteActivoId,
+  onCambiarCliente,
+}: {
+  clienteActivoId: string
+  onCambiarCliente: (c: { id: string; nombre: string; linkId: string }) => void
+}) {
+  const { session } = useSession()
+  const trainerId = session?.user.id ?? ''
+  const { data: links } = useAsyncData(() => listAsTrainer(trainerId), [trainerId])
+  const [busqueda, setBusqueda] = useState('')
+
+  const clientes = (links ?? []).filter((l) => l.status === 'accepted')
+  const q = busqueda.trim().toLowerCase()
+  const filtrados = q
+    ? clientes.filter((c) => (c.otroNombre ?? '').toLowerCase().includes(q) || (c.otroEmail ?? '').toLowerCase().includes(q))
+    : clientes
+
+  return (
+    <Card>
+      <CardLabel>Clientes</CardLabel>
+      <div className="mb-3 flex items-center gap-2 rounded-control border border-bg-border bg-bg-panel px-3 py-2">
+        <Search size={14} className="shrink-0 text-text-muted" />
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar cliente…"
+          className="w-full bg-transparent text-sm text-text-primary outline-none placeholder:text-text-muted"
+        />
+      </div>
+      <div className="flex max-h-[420px] flex-col gap-1 overflow-y-auto">
+        {filtrados.map((c) => {
+          const nombre = c.otroNombre || c.otroEmail || 'Cliente'
+          const activo = c.clientId === clienteActivoId
+          return (
+            <button
+              key={c.id}
+              onClick={() => onCambiarCliente({ id: c.clientId, nombre, linkId: c.id })}
+              className={`flex items-center gap-2 rounded-control px-2 py-2 text-left text-sm transition-colors ${
+                activo ? 'bg-pegasus-redSoft text-pegasus-red' : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
+              }`}
+            >
+              <Avatar nombre={nombre} size={26} />
+              <span className="min-w-0 flex-1 truncate">{nombre}</span>
+              {!activo && <ChevronRight size={14} className="shrink-0 text-text-muted" />}
+            </button>
+          )
+        })}
+        {filtrados.length === 0 && <p className="py-3 text-center text-xs text-text-muted">Sin resultados.</p>}
+      </div>
+    </Card>
   )
 }
 
@@ -115,6 +184,22 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-xs text-text-muted">{label}</div>
       <div className="font-medium">{value}</div>
+    </div>
+  )
+}
+
+/** Versión más grande de Stat, solo para la tira de resumen al inicio de Datos —
+ * mismos datos, más peso visual (icono + número grande) al ser lo primero que se lee. */
+function ResumenStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 px-4 first:pl-0 last:pr-0">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pegasus-redSoft text-pegasus-red">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <div className="text-xs text-text-muted">{label}</div>
+        <div className="truncate text-xl font-bold">{value}</div>
+      </div>
     </div>
   )
 }
@@ -152,22 +237,21 @@ function BotonDesvincular({ onConfirm }: { onConfirm: () => Promise<void> }) {
 
 function DatosTab({ onDesvinculado }: { onDesvinculado: () => void }) {
   const { clienteActivo } = useSession()
-  const { data: perfil } = useTargetProfile()
+  const { data: perfil, refetch: refetchPerfil } = useTargetProfile()
   const { data: pesos } = useWeightEntries()
   const { data: mediciones } = useMeasurements()
   const { data: planActivo } = useActiveMacroPlan()
   const { data: link } = useLinkCliente()
   if (!perfil) return <Card>Cargando…</Card>
 
-  // perfil.pesoInicial/fechaInicio son un valor declarado a mano (Ajustes >
-  // Perfil) que casi nunca rellena un cliente que solo usa Tracker — si no
-  // están, se usa el primer registro real de peso (mismo dato que ya
-  // muestra la pestaña Peso como "Inicial") en vez de dejarlo en blanco.
+  // perfil.pesoInicial es un valor declarado a mano (Ajustes > Perfil) que casi
+  // nunca rellena un cliente que solo usa Tracker — si no está, se usa el primer
+  // registro real de peso (mismo dato que ya muestra la pestaña Peso como
+  // "Inicial") en vez de dejarlo en blanco.
   const ordenPesos = pesos && pesos.length > 0 ? [...pesos].sort((a, b) => a.fecha.localeCompare(b.fecha)) : []
   const primerPeso = ordenPesos[0] ?? null
   const ultimoPeso = ordenPesos[ordenPesos.length - 1] ?? null
   const pesoInicial = perfil.pesoInicial ?? primerPeso?.pesoKg ?? null
-  const fechaInicio = perfil.fechaInicio ?? primerPeso?.fecha ?? null
   const pesoActual = ultimoPeso?.pesoKg ?? pesoInicial
 
   const ultimaMedicion =
@@ -186,74 +270,128 @@ function DatosTab({ onDesvinculado }: { onDesvinculado: () => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
+      {/* Bloque 1 — Resumen: mismos 3 datos de siempre (peso actual/altura/%graso),
+          solo con más peso visual (icono + número grande) al ser lo primero que se lee. */}
       <Card>
-        <div className="grid grid-cols-3 gap-4 text-sm">
-          <Stat label="Peso actual" value={pesoActual != null ? `${formatNumero(pesoActual, 1)} kg` : '—'} />
-          <Stat label="Altura" value={perfil.altura != null ? `${formatNumero(perfil.altura, 0)} cm` : '—'} />
-          <Stat
+        <div className="grid grid-cols-3 divide-x divide-bg-border">
+          <ResumenStat icon={<Scale size={18} />} label="Peso actual" value={pesoActual != null ? `${formatNumero(pesoActual, 1)} kg` : '—'} />
+          <ResumenStat icon={<Ruler size={18} />} label="Altura" value={perfil.altura != null ? `${formatNumero(perfil.altura, 0)} cm` : '—'} />
+          <ResumenStat
+            icon={<Percent size={18} />}
             label="% graso"
             value={ultimaMedicion?.porcentajeGraso != null ? `${formatNumero(ultimaMedicion.porcentajeGraso, 1)} %` : '—'}
           />
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 gap-4">
+      {/* Bloque 2 — Información del cliente: mismo ancho (completo, sin dividir en
+          50/50), Información personal arriba y Datos físicos debajo — misma medida
+          por fila (divide-x en línea) que la tira de Peso actual/Altura/%graso de
+          arriba. */}
+      <div className="flex flex-col gap-3">
         <Card>
           <CardLabel>Información personal</CardLabel>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <Stat label="Nombre" value={perfil.nombre} />
-            <Stat label="Tipo de cuenta" value={rolLabel(perfil.role)} />
-            <Stat label="Edad" value={edad != null ? `${edad} años` : '—'} />
-            <Stat label="Sexo" value={sexoLabel(perfil.sexo) ?? '—'} />
-            <Stat label="Email" value={perfil.email ?? '—'} />
-            <Stat label="Cliente desde" value={fechaInicio ? formatFechaCorta(fechaInicio) : '—'} />
+          <div className="grid grid-cols-4 divide-x divide-bg-border text-sm">
+            <div className="px-4 first:pl-0 last:pr-0">
+              <Stat label="Nombre" value={perfil.nombre} />
+            </div>
+            <div className="px-4 first:pl-0 last:pr-0">
+              <Stat label="Edad" value={edad != null ? `${edad} años` : '—'} />
+            </div>
+            <div className="px-4 first:pl-0 last:pr-0">
+              <Stat label="Sexo" value={sexoLabel(perfil.sexo) ?? '—'} />
+            </div>
+            <div className="px-4 first:pl-0 last:pr-0">
+              <Stat label="Email" value={perfil.email ?? '—'} />
+            </div>
           </div>
         </Card>
 
         <Card>
           <CardLabel>Datos físicos</CardLabel>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <Stat label="Peso inicial" value={pesoInicial != null ? `${formatNumero(pesoInicial, 1)} kg` : '—'} />
-            <Stat label="Peso actual" value={pesoActual != null ? `${formatNumero(pesoActual, 1)} kg` : '—'} />
-            <Stat label="Última medición" value={ultimaMedicion ? formatFechaCorta(ultimaMedicion.fecha) : '—'} />
+          <div className="grid grid-cols-3 divide-x divide-bg-border text-sm">
+            <div className="px-4 first:pl-0 last:pr-0">
+              <Stat label="Peso inicial" value={pesoInicial != null ? `${formatNumero(pesoInicial, 1)} kg` : '—'} />
+            </div>
+            <div className="px-4 first:pl-0 last:pr-0">
+              <Stat label="Peso actual" value={pesoActual != null ? `${formatNumero(pesoActual, 1)} kg` : '—'} />
+            </div>
+            <div className="px-4 first:pl-0 last:pr-0">
+              <Stat label="Última medición" value={ultimaMedicion ? formatFechaCorta(ultimaMedicion.fecha) : '—'} />
+            </div>
           </div>
         </Card>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {macroCalculado && (
-          <Card>
-            <CardLabel>Objetivos calóricos</CardLabel>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <Stat label="Normocalórico" value={`${formatNumero(planActivo!.normocalorico, 0)} kcal`} />
-              <Stat label="Promedio actual" value={`${formatNumero(macroCalculado.promedioCalorias, 0)} kcal`} />
-              <Stat
-                label="Superávit/Déficit"
-                value={`${macroCalculado.superavitDeficit >= 0 ? '+' : ''}${formatNumero(macroCalculado.superavitDeficit, 0)} kcal`}
-              />
-            </div>
-          </Card>
-        )}
+      {/* Bloque 3 — Objetivos: solo tiene sentido con Macros — con Dieta cerrada no
+          hay gramos/kcal objetivo que mostrar, así que la fila entera desaparece. */}
+      {macroCalculado && planActivo && (
+        <div className="grid grid-cols-2 gap-3">
+          <MacroDayCard
+            diaTipo="ON"
+            diasSemana={planActivo.diasOn}
+            kcal={macroCalculado.calTotalOn}
+            proteina={planActivo.proteinaOn}
+            hidratos={planActivo.hidratosOn}
+            grasas={planActivo.grasasOn}
+            proteinaPorKg={macroCalculado.proteinaOnPorKg}
+            hidratosPorKg={macroCalculado.hidratosOnPorKg}
+            grasasPorKg={macroCalculado.grasasOnPorKg}
+          />
+          <MacroDayCard
+            diaTipo="OFF"
+            diasSemana={planActivo.diasOff}
+            kcal={macroCalculado.calTotalOff}
+            proteina={planActivo.proteinaOff}
+            hidratos={planActivo.hidratosOff}
+            grasas={planActivo.grasasOff}
+            proteinaPorKg={macroCalculado.proteinaOffPorKg}
+            hidratosPorKg={macroCalculado.hidratosOffPorKg}
+            grasasPorKg={macroCalculado.grasasOffPorKg}
+          />
+        </div>
+      )}
 
-        {link && (
-          <Card>
-            <CardLabel>Entrenador</CardLabel>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <Stat label="Vinculado desde" value={formatFechaCorta(link.createdAt.slice(0, 10))} />
-              <Stat label="Estado" value={link.status === 'accepted' ? 'Activo' : link.status === 'pending' ? 'Pendiente' : 'Revocado'} />
-            </div>
-            <div className="mt-4 border-t border-bg-border pt-3">
-              <BotonDesvincular onConfirm={desvincular} />
-            </div>
-          </Card>
-        )}
+      {/* Bloque 4 — Evolución del peso (mismo ancho que una tarjeta de Objetivo,
+          columna izquierda) + Tipo de nutrición/Entrenador apilados a la derecha. */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="flex flex-col">
+          <CardLabel>Evolución del peso</CardLabel>
+          <div className="min-h-0 flex-1">
+            <WeightChart entries={pesos ?? []} height="100%" />
+          </div>
+        </Card>
+
+        <div className="flex flex-col gap-3">
+          <TipoNutricionCard
+            userId={perfil.id}
+            tipoActual={perfil.tipoDieta}
+            distingueDiasActual={perfil.dietaCerradaDistingueDias}
+            bloqueado={false}
+            nombreCliente={clienteActivo?.nombre}
+            onGuardado={refetchPerfil}
+          />
+
+          {link && (
+            <Card>
+              <CardLabel>Entrenador</CardLabel>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <Stat label="Vinculado desde" value={formatFechaCorta(link.createdAt.slice(0, 10))} />
+                <div>
+                  <div className="text-xs text-text-muted">Estado</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">
+                      {link.status === 'accepted' ? 'Activo' : link.status === 'pending' ? 'Pendiente' : 'Revocado'}
+                    </span>
+                    <BotonDesvincular onConfirm={desvincular} />
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
       </div>
-
-      <Card>
-        <CardLabel>Evolución del peso</CardLabel>
-        <WeightChart entries={pesos ?? []} height={200} />
-      </Card>
     </div>
   )
 }
@@ -299,7 +437,7 @@ function RevisionesTab() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       <Card>
         <CardLabel>Programar revisión</CardLabel>
         <div className="flex items-end gap-3">
@@ -473,7 +611,7 @@ function PagosTab() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       <PrecioClienteCard />
       <Card>
         <CardLabel>Estado actual</CardLabel>

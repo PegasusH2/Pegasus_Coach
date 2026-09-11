@@ -7,6 +7,7 @@ export type Section =
   | 'ficha'
   | 'revisiones'
   | 'calendario'
+  | 'calculadora'
   | 'ajustes'
 
 // 'macros' cubre tanto el modo Macros como Dieta cerrada — <Macros/> ya decide cuál mostrar según el cliente.

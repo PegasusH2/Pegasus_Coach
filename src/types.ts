@@ -480,6 +480,10 @@ export interface TrainerSettings {
   startScreen: StartScreen
   dateFormat: string
   exportFormat: ExportFormat
+  /** Checkbox "Aplicar recomendaciones de macros según sexo" en la configuración de
+   * macros — puramente informativo (muestra/oculta una leyenda de ayuda), no cambia
+   * ningún cálculo. */
+  mostrarRecomendacionesMacrosPorSexo: boolean
   updatedAt: string
 }
 

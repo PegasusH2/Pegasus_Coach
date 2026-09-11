@@ -1,5 +1,6 @@
 import { supabase } from './client'
 import { findProfileIdByEmail } from './profileRepo'
+import { deletePendingReviews } from './reviewRepo'
 import type { LinkStatus, TrainerClientLink } from '@/types'
 
 const TABLE = 'trainer_client_links'
@@ -122,9 +123,17 @@ export async function updateLinkOverrides(
 }
 
 export async function revokeLink(linkId: string): Promise<void> {
+  const { data: link, error: readError } = await supabase.from(TABLE).select('trainerId, clientId').eq('id', linkId).single()
+  if (readError) throw new Error(`Error al revocar: ${readError.message}`)
+
   const { error } = await supabase
     .from(TABLE)
     .update({ status: 'revoked', respondedAt: new Date().toISOString() })
     .eq('id', linkId)
   if (error) throw new Error(`Error al revocar: ${error.message}`)
+
+  // Bug real: sin esto, una revisión/entreno ya agendado se quedaba "pendiente"
+  // para siempre en el Calendario aunque el cliente ya no estuviera vinculado —
+  // ver deletePendingReviews (reviewRepo.ts) para qué se borra y qué no.
+  await deletePendingReviews(link.trainerId, link.clientId)
 }

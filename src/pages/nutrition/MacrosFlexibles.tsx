@@ -1,18 +1,15 @@
 import { useEffect, useState } from 'react'
-import { PieChart as PieChartIcon } from 'lucide-react'
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { useActiveMacroPlan } from '@/hooks/useData'
 import { calcularMacroPlan } from '@/lib/calculos'
-import { useDiaTipo } from '@/lib/DiaTipoContext'
 import { useSession } from '@/lib/SessionContext'
 import { createMacroPlan, updateMacroPlan } from '@/lib/supabase/macroPlanRepo'
+import { updateTrainerSettings } from '@/lib/supabase/trainerSettingsRepo'
 import { Card, CardLabel } from '@/components/ui/Card'
-import { DiaToggle } from '@/components/ui/DiaToggle'
 import { Field } from '@/components/ui/Field'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { MacroDayCard } from '@/components/nutrition/MacroDayCard'
-import { MacroSecondarySummary } from '@/components/nutrition/MacroSecondarySummary'
+import { RecomendacionesMacrosSexoToggle } from '@/components/nutrition/RecomendacionesMacrosSexo'
 import { formatFechaCorta, formatNumero, hoyIso } from '@/lib/format'
 import type { DiaTipo, MacroPlanInput } from '@/types'
 
@@ -47,14 +44,22 @@ function num(v: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-function otroDia(d: DiaTipo): DiaTipo {
-  return d === 'ON' ? 'OFF' : 'ON'
-}
-
 export function MacrosFlexibles() {
-  const { targetUserId, soloLecturaNutricion: readOnly } = useSession()
+  const { session, profile, targetUserId, soloLecturaNutricion: readOnly, trainerSettings, refreshTrainerSettings } = useSession()
+  const esEntrenador = profile?.role === 'entrenador'
+  const [guardandoPreferencia, setGuardandoPreferencia] = useState(false)
+
+  async function toggleRecomendacionesSexo(valor: boolean) {
+    if (!session) return
+    setGuardandoPreferencia(true)
+    try {
+      await updateTrainerSettings(session.user.id, { mostrarRecomendacionesMacrosPorSexo: valor })
+      await refreshTrainerSettings()
+    } finally {
+      setGuardandoPreferencia(false)
+    }
+  }
   const { data: plan, refetch } = useActiveMacroPlan()
-  const { diaTipo, setDiaTipo } = useDiaTipo()
   const [form, setForm] = useState<MacroPlanInput>(emptyForm(targetUserId ?? ''))
   const [guardando, setGuardando] = useState(false)
 
@@ -92,14 +97,8 @@ export function MacrosFlexibles() {
           dias: form.diasOff,
         }
 
-  const principal = vista(diaTipo)
-  const secundario = vista(otroDia(diaTipo))
-
-  const donutData = [
-    { name: 'Proteína', value: principal.proteina ?? 0, color: '#e8383d' },
-    { name: 'Hidratos', value: principal.hidratos ?? 0, color: '#f0a53a' },
-    { name: 'Grasas', value: principal.grasas ?? 0, color: '#e8b93a' },
-  ]
+  const on = vista('ON')
+  const off = vista('OFF')
 
   async function guardarCambios() {
     if (!plan) return
@@ -140,7 +139,7 @@ export function MacrosFlexibles() {
 
   if (!plan && readOnly) {
     return (
-      <div className="max-w-5xl">
+      <div>
         <PageHeader title="Macros" subtitle="Tu entrenador todavía no ha configurado tus macros" />
         <p className="text-sm text-text-muted">En cuanto tu entrenador registre un plan, lo verás aquí.</p>
       </div>
@@ -148,62 +147,41 @@ export function MacrosFlexibles() {
   }
 
   return (
-    <div className="max-w-5xl">
+    <div>
       <PageHeader
         title="Macros"
         subtitle={plan ? `Plan activo desde ${formatFechaCorta(plan.fecha)}` : 'Todavía no hay ningún plan de macros'}
-        actions={<DiaToggle value={diaTipo} onChange={setDiaTipo} />}
       />
 
-      <div key={diaTipo} className="tab-fade">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <MacroDayCard
-            diaTipo={diaTipo}
-            diasSemana={principal.dias}
-            kcal={principal.kcal}
-            proteina={principal.proteina}
-            hidratos={principal.hidratos}
-            grasas={principal.grasas}
-            proteinaPorKg={principal.proteinaKg}
-            hidratosPorKg={principal.hidratosKg}
-            grasasPorKg={principal.grasasKg}
-          />
-        </div>
-
-        <Card>
-          <CardLabel icon={<PieChartIcon size={13} />}>Reparto</CardLabel>
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie data={donutData} dataKey="value" innerRadius={45} outerRadius={70} paddingAngle={2}>
-                {donutData.map((d) => (
-                  <Cell key={d.name} fill={d.color} stroke="none" />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{ background: '#171717', border: '1px solid #262626', borderRadius: 10, fontSize: 12 }}
-                formatter={(value: number, name: string) => [`${value} g`, name]}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
-      </div>
-
-      <div className="mt-4">
-        <MacroSecondarySummary
-          diaTipo={otroDia(diaTipo)}
-          kcal={secundario.kcal}
-          proteina={secundario.proteina}
-          hidratos={secundario.hidratos}
-          grasas={secundario.grasas}
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <MacroDayCard
+          diaTipo="ON"
+          diasSemana={on.dias}
+          kcal={on.kcal}
+          proteina={on.proteina}
+          hidratos={on.hidratos}
+          grasas={on.grasas}
+          proteinaPorKg={on.proteinaKg}
+          hidratosPorKg={on.hidratosKg}
+          grasasPorKg={on.grasasKg}
         />
-      </div>
+        <MacroDayCard
+          diaTipo="OFF"
+          diasSemana={off.dias}
+          kcal={off.kcal}
+          proteina={off.proteina}
+          hidratos={off.hidratos}
+          grasas={off.grasas}
+          proteinaPorKg={off.proteinaKg}
+          hidratosPorKg={off.hidratosKg}
+          grasasPorKg={off.grasasKg}
+        />
       </div>
 
       {readOnly ? (
-        <Card className="mt-4">
+        <Card className="mt-2">
           <CardLabel>General</CardLabel>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <InfoStat label="Peso de referencia" value={form.pesoCorporalRef} suffix="kg" decimales={1} />
             <InfoStat label="Normocalórico" value={form.normocalorico} suffix="kcal" />
             <InfoStat label="NEAT objetivo" value={form.neatObjetivoPasos} suffix="pasos" />
@@ -212,7 +190,7 @@ export function MacrosFlexibles() {
         </Card>
       ) : (
         <>
-          <Card className="mt-4">
+          <Card className="mt-2">
             <CardLabel>General</CardLabel>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Field
@@ -244,9 +222,17 @@ export function MacrosFlexibles() {
                 onChange={(e) => set('porcentajeGraso', num(e.target.value))}
               />
             </div>
+
+            {esEntrenador && (
+              <RecomendacionesMacrosSexoToggle
+                checked={trainerSettings?.mostrarRecomendacionesMacrosPorSexo ?? false}
+                disabled={guardandoPreferencia}
+                onChange={toggleRecomendacionesSexo}
+              />
+            )}
           </Card>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
             <Card>
               <CardLabel>Día ON</CardLabel>
               <div className="grid grid-cols-2 gap-3">
@@ -281,7 +267,7 @@ export function MacrosFlexibles() {
             </Card>
           </div>
 
-          <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button variant="secondary" onClick={registrarNuevaRevision} disabled={guardando} className="w-full sm:w-auto">
               Registrar como nueva revisión (hoy)
             </Button>

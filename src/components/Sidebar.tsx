@@ -1,4 +1,5 @@
 import {
+  Calculator,
   Calendar,
   ChevronDown,
   Home,
@@ -165,6 +166,14 @@ export function Sidebar({ route, onNavigate, nombrePerfil, rol, onCerrarSesion, 
               icon={<Calendar size={16} />}
               label="Calendario"
               onClick={() => irA('calendario')}
+            />
+          )}
+          {rol === 'entrenador' && (
+            <NavItem
+              active={route.section === 'calculadora'}
+              icon={<Calculator size={16} />}
+              label="Calculadora de macros"
+              onClick={() => irA('calculadora')}
             />
           )}
 

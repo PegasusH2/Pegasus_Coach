@@ -14,6 +14,7 @@ import { Clientes } from './pages/Clientes'
 import { FichaCliente } from './pages/FichaCliente'
 import { Revisiones } from './pages/Revisiones'
 import { Calendario } from './pages/Calendario'
+import { CalculadoraMacros } from './pages/CalculadoraMacros'
 import { Ajustes } from './pages/Ajustes'
 
 function AppShell() {
@@ -145,6 +146,7 @@ function AppShell() {
             )}
             {route.section === 'revisiones' && profile.role === 'entrenador' && <Revisiones />}
             {route.section === 'calendario' && profile.role === 'entrenador' && <Calendario />}
+            {route.section === 'calculadora' && profile.role === 'entrenador' && <CalculadoraMacros />}
             {route.section === 'ajustes' && <Ajustes />}
           </main>
         </div>

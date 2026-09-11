@@ -71,3 +71,21 @@ export async function updateReviewEstado(id: string, estado: EstadoRevision, fec
   const { error } = await supabase.from(TABLE).update({ estado, fechaRecepcion }).eq('id', id)
   if (error) throw new Error(`Error al actualizar la revisión: ${error.message}`)
 }
+
+/** Borrar un evento programado a mano desde el Calendario — a diferencia de
+ * deletePendingReviews (automático, al desvincular), aquí el entrenador puede borrar
+ * cualquier revisión/entreno suyo sea cual sea su estado (p.ej. uno programado por
+ * error, o que ya no tiene sentido aunque el cliente siga vinculado). */
+export async function deleteReview(id: string): Promise<void> {
+  const { error } = await supabase.from(TABLE).delete().eq('id', id)
+  if (error) throw new Error(`Error al eliminar: ${error.message}`)
+}
+
+/** Al desvincular un cliente (revokeLink en trainerRepo.ts), sus revisiones/entrenos
+ * todavía PENDIENTES (agendados a futuro, nunca llegaron a pasar) dejan de tener
+ * sentido — se eliminan para que no se queden colgados en el Calendario. Los que ya
+ * se recibieron o revisaron son historial real y no se tocan. */
+export async function deletePendingReviews(trainerId: string, clientId: string): Promise<void> {
+  const { error } = await supabase.from(TABLE).delete().eq('trainerId', trainerId).eq('clientId', clientId).eq('estado', 'pendiente')
+  if (error) throw new Error(`Error al limpiar revisiones pendientes: ${error.message}`)
+}
