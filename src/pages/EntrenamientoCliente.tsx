@@ -45,14 +45,14 @@ function BotonBorrar({ onConfirm, label = 'Eliminar' }: { onConfirm: () => void;
 }
 
 export function EntrenamientoCliente() {
-  const [sub, setSub] = useState<'ejecucion' | 'planificacion'>('ejecucion')
+  const [sub, setSub] = useState<'ejecucion' | 'planificacion'>('planificacion')
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-1 rounded-control bg-bg-panel p-1 w-fit">
         {(
           [
-            { key: 'ejecucion', label: 'Ejecución' },
             { key: 'planificacion', label: 'Planificación' },
+            { key: 'ejecucion', label: 'Ejecución' },
           ] as const
         ).map((t) => (
           <button
@@ -85,15 +85,13 @@ function PlanificacionView() {
   const { data: rutinas, refetch: refetchRutinas } = useRoutinesCliente()
   const { data: templates, refetch: refetchTemplates } = useTemplatesCliente()
   const { data: ejercicios, refetch: refetchEjercicios } = useExercisesCliente()
-  const [rutinaAbiertaId, setRutinaAbiertaId] = useState<string | null>(null)
+  const [diaAbiertoId, setDiaAbiertoId] = useState<string | null>(null)
   const [gestorAbierto, setGestorAbierto] = useState(false)
 
   function refetchTodo() {
     refetchRutinas()
     refetchTemplates()
   }
-
-  const rutinaAbierta = rutinaAbiertaId ? (rutinas ?? []).find((r) => r.id === rutinaAbiertaId) ?? null : null
 
   if (gestorAbierto) {
     return (
@@ -102,19 +100,6 @@ function PlanificacionView() {
         templates={templates ?? []}
         onVolver={() => setGestorAbierto(false)}
         onChange={refetchTodo}
-      />
-    )
-  }
-
-  if (rutinaAbierta) {
-    return (
-      <RutinaDetailView
-        rutina={rutinaAbierta}
-        dias={(templates ?? []).filter((t) => t.routineId === rutinaAbierta.id)}
-        ejerciciosDisponibles={ejercicios ?? []}
-        onVolver={() => setRutinaAbiertaId(null)}
-        onRutinaChange={refetchRutinas}
-        onDiasChange={refetchTemplates}
       />
     )
   }
@@ -132,22 +117,17 @@ function PlanificacionView() {
           </Button>
         </div>
 
-        <NuevaRutinaForm onCreated={refetchRutinas} />
+        <NuevaRutinaForm rutinasActivas={rutinasActivas} onCreated={refetchRutinas} />
 
         {rutinasActivas.map((r) => (
-          <RutinaResumenCard
+          <RutinaGrupo
             key={r.id}
             rutina={r}
             dias={(templates ?? []).filter((t) => t.routineId === r.id)}
-            onEditar={() => setRutinaAbiertaId(r.id)}
-            onArchivar={async () => {
-              await trackerWriteRepo.archiveRoutine(r.id)
-              refetchRutinas()
-            }}
-            onEliminar={async () => {
-              await trackerWriteRepo.deleteRoutine(r.id)
-              refetchTodo()
-            }}
+            ejerciciosDisponibles={ejercicios ?? []}
+            diaAbiertoId={diaAbiertoId}
+            onToggleDia={(id) => setDiaAbiertoId(diaAbiertoId === id ? null : id)}
+            onChange={refetchTodo}
           />
         ))}
         {rutinasActivas.length === 0 && (
@@ -171,7 +151,7 @@ function PlanificacionView() {
   )
 }
 
-function NuevaRutinaForm({ onCreated }: { onCreated: () => void }) {
+function NuevaRutinaForm({ rutinasActivas, onCreated }: { rutinasActivas: TrackerRoutine[]; onCreated: () => void }) {
   const { targetUserId } = useSession()
   const [abierto, setAbierto] = useState(false)
   const [nombre, setNombre] = useState('')
@@ -182,6 +162,10 @@ function NuevaRutinaForm({ onCreated }: { onCreated: () => void }) {
     setGuardando(true)
     try {
       await trackerWriteRepo.createRoutine(targetUserId, { userId: targetUserId, name: nombre, sortOrder: 0 })
+      // Solo hay una rutina "en curso" a la vez — al crear una nueva, las que
+      // estaban activas pasan a Archivadas (Gestor de entrenos) en vez de
+      // quedar sueltas junto a la nueva como si ambas siguieran vigentes.
+      await Promise.all(rutinasActivas.map((r) => trackerWriteRepo.archiveRoutine(r.id)))
       setNombre('')
       setAbierto(false)
       onCreated()
@@ -215,37 +199,120 @@ function NuevaRutinaForm({ onCreated }: { onCreated: () => void }) {
   )
 }
 
-function RutinaResumenCard({
+// Muestra la rutina y, directamente debajo, cada Día como su propia tarjeta
+// (mismo DiaCard de siempre, colapsable) — sin un paso intermedio de "Editar"
+// para poder verlos, que es como ya se listan en Tracker ("Mis rutinas").
+function RutinaGrupo({
   rutina,
   dias,
-  onEditar,
-  onArchivar,
-  onEliminar,
+  ejerciciosDisponibles,
+  diaAbiertoId,
+  onToggleDia,
+  onChange,
 }: {
   rutina: TrackerRoutine
   dias: TrackerTemplate[]
-  onEditar: () => void
-  onArchivar: () => void
-  onEliminar: () => void
+  ejerciciosDisponibles: TrackerExercise[]
+  diaAbiertoId: string | null
+  onToggleDia: (id: string) => void
+  onChange: () => void
 }) {
+  const { session, targetUserId } = useSession()
+  const [nombre, setNombre] = useState(rutina.name)
+  const [editandoNombre, setEditandoNombre] = useState(false)
+
+  async function guardarNombre() {
+    if (!nombre.trim() || nombre === rutina.name) {
+      setEditandoNombre(false)
+      return
+    }
+    await trackerWriteRepo.renameRoutine(rutina.id, nombre)
+    setEditandoNombre(false)
+    onChange()
+  }
+
+  async function anadirDia() {
+    if (!targetUserId || !session) return
+    await trackerWriteRepo.createTemplate(
+      targetUserId,
+      { userId: targetUserId, name: `Día ${dias.length + 1}`, description: '', assignedBy: session.user.id, routineId: rutina.id },
+      session.user.id,
+    )
+    onChange()
+  }
+
   return (
-    <Card>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold text-text-primary">{rutina.name}</div>
-          <div className="mt-1 text-xs text-text-muted">{dias.length > 0 ? dias.map((d) => d.name).join(' · ') : 'Sin días todavía'}</div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={onEditar} className="flex items-center gap-1 text-xs font-semibold text-pegasus-red hover:text-pegasus-redDark">
-            <Pencil size={13} /> Editar
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3 px-1">
+        {editandoNombre ? (
+          <div className="flex flex-1 items-end gap-2">
+            <Field label="Nombre de la rutina" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+            <Button onClick={guardarNombre}>Guardar</Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setNombre(rutina.name)
+                setEditandoNombre(false)
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+        ) : (
+          <button onClick={() => setEditandoNombre(true)} className="flex items-center gap-2 text-sm font-semibold text-text-primary hover:text-pegasus-red">
+            {rutina.name}
+            <Pencil size={13} className="text-text-muted" />
           </button>
-          <button onClick={onArchivar} className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary">
+        )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              await trackerWriteRepo.archiveRoutine(rutina.id)
+              onChange()
+            }}
+            className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary"
+          >
             <Archive size={13} /> Archivar
           </button>
-          <BotonBorrar onConfirm={onEliminar} label="Eliminar rutina" />
+          <BotonBorrar
+            onConfirm={async () => {
+              await trackerWriteRepo.deleteRoutine(rutina.id)
+              onChange()
+            }}
+            label="Eliminar rutina"
+          />
         </div>
       </div>
-    </Card>
+
+      <div className="flex flex-col gap-2">
+        {dias.map((dia) => (
+          <DiaCard
+            key={dia.id}
+            template={dia}
+            ejerciciosDisponibles={ejerciciosDisponibles}
+            abierta={diaAbiertoId === dia.id}
+            onToggle={() => onToggleDia(dia.id)}
+            onDuplicar={async () => {
+              if (!targetUserId || !session) return
+              await trackerWriteRepo.duplicateTemplate(targetUserId, dia, session.user.id)
+              onChange()
+            }}
+            onDeleted={onChange}
+          />
+        ))}
+        {dias.length === 0 && (
+          <Card>
+            <p className="text-sm text-text-muted">Esta rutina todavía no tiene ningún día.</p>
+          </Card>
+        )}
+      </div>
+
+      <Button variant="secondary" onClick={anadirDia} className="w-fit">
+        <span className="flex items-center gap-1.5">
+          <Plus size={14} /> Añadir día
+        </span>
+      </Button>
+    </div>
   )
 }
 
@@ -282,105 +349,6 @@ function DiaSueltoCard({ dia, rutinas, onMovido }: { dia: TrackerTemplate; rutin
         </div>
       </div>
     </Card>
-  )
-}
-
-function RutinaDetailView({
-  rutina,
-  dias,
-  ejerciciosDisponibles,
-  onVolver,
-  onRutinaChange,
-  onDiasChange,
-}: {
-  rutina: TrackerRoutine
-  dias: TrackerTemplate[]
-  ejerciciosDisponibles: TrackerExercise[]
-  onVolver: () => void
-  onRutinaChange: () => void
-  onDiasChange: () => void
-}) {
-  const { session, targetUserId } = useSession()
-  const [nombre, setNombre] = useState(rutina.name)
-  const [editandoNombre, setEditandoNombre] = useState(false)
-  const [diaAbiertoId, setDiaAbiertoId] = useState<string | null>(null)
-
-  async function guardarNombre() {
-    if (!nombre.trim() || nombre === rutina.name) {
-      setEditandoNombre(false)
-      return
-    }
-    await trackerWriteRepo.renameRoutine(rutina.id, nombre)
-    setEditandoNombre(false)
-    onRutinaChange()
-  }
-
-  async function anadirDia() {
-    if (!targetUserId || !session) return
-    await trackerWriteRepo.createTemplate(
-      targetUserId,
-      { userId: targetUserId, name: `Día ${dias.length + 1}`, description: '', assignedBy: session.user.id, routineId: rutina.id },
-      session.user.id,
-    )
-    onDiasChange()
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <button onClick={onVolver} className="flex w-fit items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary">
-        <ArrowLeft size={15} /> Volver a rutinas
-      </button>
-
-      {editandoNombre ? (
-        <div className="flex items-end gap-3">
-          <Field label="Nombre de la rutina" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-          <Button onClick={guardarNombre}>Guardar</Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setNombre(rutina.name)
-              setEditandoNombre(false)
-            }}
-          >
-            Cancelar
-          </Button>
-        </div>
-      ) : (
-        <button onClick={() => setEditandoNombre(true)} className="flex w-fit items-center gap-2 text-lg font-bold text-text-primary hover:text-pegasus-red">
-          {rutina.name}
-          <Pencil size={14} className="text-text-muted" />
-        </button>
-      )}
-
-      <div className="flex flex-col gap-2">
-        {dias.map((dia) => (
-          <DiaCard
-            key={dia.id}
-            template={dia}
-            ejerciciosDisponibles={ejerciciosDisponibles}
-            abierta={diaAbiertoId === dia.id}
-            onToggle={() => setDiaAbiertoId(diaAbiertoId === dia.id ? null : dia.id)}
-            onDuplicar={async () => {
-              if (!targetUserId || !session) return
-              await trackerWriteRepo.duplicateTemplate(targetUserId, dia, session.user.id)
-              onDiasChange()
-            }}
-            onDeleted={onDiasChange}
-          />
-        ))}
-        {dias.length === 0 && (
-          <Card>
-            <p className="text-sm text-text-muted">Esta rutina todavía no tiene ningún día.</p>
-          </Card>
-        )}
-      </div>
-
-      <Button variant="secondary" onClick={anadirDia} className="w-fit">
-        <span className="flex items-center gap-1.5">
-          <Plus size={14} /> Añadir día
-        </span>
-      </Button>
-    </div>
   )
 }
 
