@@ -6,12 +6,13 @@
 //     supabase/migrations/0009_revertir_ejecucion_entrenador.sql).
 //   - Planificación: ejercicios y rutinas (templates) que el entrenador prepara
 //     para el cliente — el entrenador SÍ puede crear/editar/borrar aquí.
-import { useEffect, useState } from 'react'
-import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronRight, Copy, Library, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Archive, ArchiveRestore, ArrowLeft, ChevronDown, ChevronRight, Copy, Download, Library, ListChecks, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { useExercisesCliente, useRoutinesCliente, useTemplateExercises, useTemplatesCliente } from '@/hooks/useData'
 import { useSession } from '@/lib/SessionContext'
 import * as trackerWriteRepo from '@/lib/supabase/trackerWriteRepo'
 import { searchCatalog } from '@/lib/supabase/catalogRepo'
+import { descargarPlantillaRutina, parseRutinaExcel } from '@/lib/routineExcel'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
@@ -82,15 +83,94 @@ export function EntrenamientoCliente() {
 // ---------------------------------------------------------------------
 
 function PlanificacionView() {
+  const { session, targetUserId } = useSession()
   const { data: rutinas, refetch: refetchRutinas } = useRoutinesCliente()
   const { data: templates, refetch: refetchTemplates } = useTemplatesCliente()
   const { data: ejercicios, refetch: refetchEjercicios } = useExercisesCliente()
   const [diaAbiertoId, setDiaAbiertoId] = useState<string | null>(null)
   const [gestorAbierto, setGestorAbierto] = useState(false)
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const [importando, setImportando] = useState(false)
+  const [importMsg, setImportMsg] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
 
   function refetchTodo() {
     refetchRutinas()
     refetchTemplates()
+  }
+
+  const rutinasActivas = (rutinas ?? []).filter((r) => !r.archivedAt)
+  const diasSueltos = (templates ?? []).filter((t) => !t.routineId)
+
+  // Importar un Excel crea una rutina nueva completa (días + ejercicios) —
+  // igual que "Nueva rutina", las rutinas activas anteriores se archivan en
+  // vez de convivir con la importada como si ambas siguieran vigentes. Los
+  // ejercicios del Excel que no existan ya en la biblioteca del cliente se
+  // crean sobre la marcha (se hacen coincidir por nombre, sin distinguir
+  // mayúsculas/espacios).
+  async function importarRutinaDesdeArchivo(file: File) {
+    if (!targetUserId || !session) return
+    setImportando(true)
+    setImportMsg(null)
+    try {
+      const { nombreRutina, filas } = await parseRutinaExcel(file)
+      await Promise.all(rutinasActivas.map((r) => trackerWriteRepo.archiveRoutine(r.id)))
+      const rutina = await trackerWriteRepo.createRoutine(targetUserId, {
+        userId: targetUserId,
+        name: nombreRutina || `Rutina importada ${new Date().toLocaleDateString('es-ES')}`,
+        sortOrder: 0,
+      })
+
+      const ejerciciosPorNombre = new Map((ejercicios ?? []).map((e) => [e.name.trim().toLowerCase(), e]))
+      const nombresDias: string[] = []
+      const filasPorDia = new Map<string, typeof filas>()
+      for (const f of filas) {
+        if (!filasPorDia.has(f.dia)) {
+          filasPorDia.set(f.dia, [])
+          nombresDias.push(f.dia)
+        }
+        filasPorDia.get(f.dia)!.push(f)
+      }
+
+      for (const nombreDia of nombresDias) {
+        const dia = await trackerWriteRepo.createTemplate(
+          targetUserId,
+          { userId: targetUserId, name: nombreDia, description: '', assignedBy: session.user.id, routineId: rutina.id },
+          session.user.id,
+        )
+        const filasDia = filasPorDia.get(nombreDia)!
+        for (let i = 0; i < filasDia.length; i++) {
+          const f = filasDia[i]
+          const clave = f.ejercicio.trim().toLowerCase()
+          let ejercicio = ejerciciosPorNombre.get(clave)
+          if (!ejercicio) {
+            ejercicio = await trackerWriteRepo.createExercise(targetUserId, {
+              userId: targetUserId,
+              name: f.ejercicio.trim(),
+              notes: '',
+              archived: false,
+              catalogId: null,
+            })
+            ejerciciosPorNombre.set(clave, ejercicio)
+          }
+          await trackerWriteRepo.addTemplateExercise({
+            templateId: dia.id,
+            exerciseId: ejercicio.id,
+            sortOrder: i,
+            targetSets: f.series,
+            targetRepsMin: f.repsMin,
+            targetRepsMax: f.repsMax,
+          })
+        }
+      }
+
+      setImportMsg({ tipo: 'ok', texto: `Rutina "${rutina.name}" importada: ${nombresDias.length} días, ${filas.length} ejercicios.` })
+      refetchTodo()
+      refetchEjercicios()
+    } catch (err) {
+      setImportMsg({ tipo: 'error', texto: err instanceof Error ? err.message : 'No se pudo importar el Excel.' })
+    } finally {
+      setImportando(false)
+    }
   }
 
   if (gestorAbierto) {
@@ -104,18 +184,41 @@ function PlanificacionView() {
     )
   }
 
-  const rutinasActivas = (rutinas ?? []).filter((r) => !r.archivedAt)
-  const diasSueltos = (templates ?? []).filter((t) => !t.routineId)
-
   return (
     <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1.3fr_1fr]">
       <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardLabel icon={<ListChecks size={13} />}>Rutinas asignadas</CardLabel>
-          <Button variant="secondary" onClick={() => setGestorAbierto(true)}>
-            Gestor de entrenos
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={descargarPlantillaRutina}>
+              <span className="flex items-center gap-1.5">
+                <Download size={14} /> Plantilla Excel
+              </span>
+            </Button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (file) importarRutinaDesdeArchivo(file)
+              }}
+            />
+            <Button variant="secondary" onClick={() => importInputRef.current?.click()} disabled={importando}>
+              <span className="flex items-center gap-1.5">
+                <Upload size={14} /> {importando ? 'Importando…' : 'Importar Excel'}
+              </span>
+            </Button>
+            <Button variant="secondary" onClick={() => setGestorAbierto(true)}>
+              Gestor de entrenos
+            </Button>
+          </div>
         </div>
+        {importMsg && (
+          <p className={`text-xs ${importMsg.tipo === 'ok' ? 'text-emerald-400' : 'text-pegasus-red'}`}>{importMsg.texto}</p>
+        )}
 
         <NuevaRutinaForm rutinasActivas={rutinasActivas} onCreated={refetchRutinas} />
 
@@ -298,6 +401,7 @@ function RutinaGrupo({
               onChange()
             }}
             onDeleted={onChange}
+            onRenamed={onChange}
           />
         ))}
         {dias.length === 0 && (
@@ -359,6 +463,7 @@ function DiaCard({
   onToggle,
   onDuplicar,
   onDeleted,
+  onRenamed,
 }: {
   template: TrackerTemplate
   ejerciciosDisponibles: TrackerExercise[]
@@ -366,13 +471,27 @@ function DiaCard({
   onToggle: () => void
   onDuplicar: () => void
   onDeleted: () => void
+  onRenamed: () => void
 }) {
   const { data: templateExercises, refetch } = useTemplateExercises(abierta ? template.id : null)
   const [seleccionId, setSeleccionId] = useState('')
+  const [nombre, setNombre] = useState(template.name)
+  const [editandoNombre, setEditandoNombre] = useState(false)
 
   async function borrarDia() {
     await trackerWriteRepo.deleteTemplate(template.id)
     onDeleted()
+  }
+
+  async function guardarNombre() {
+    if (!nombre.trim() || nombre === template.name) {
+      setNombre(template.name)
+      setEditandoNombre(false)
+      return
+    }
+    await trackerWriteRepo.updateTemplate(template.id, { name: nombre })
+    setEditandoNombre(false)
+    onRenamed()
   }
 
   async function anadirEjercicio() {
@@ -391,17 +510,38 @@ function DiaCard({
 
   return (
     <Card>
-      <div className="flex items-center justify-between">
-        <button onClick={onToggle} className="flex items-center gap-2 text-sm font-semibold text-text-primary">
-          {abierta ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-          {template.name}
-        </button>
-        <div className="flex items-center gap-3">
-          <button onClick={onDuplicar} className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary" title="Duplicar día">
-            <Copy size={13} /> Duplicar
-          </button>
-          <BotonBorrar onConfirm={borrarDia} label="Eliminar día" />
-        </div>
+      <div className="flex items-center justify-between gap-2">
+        {editandoNombre ? (
+          <div className="flex flex-1 items-end gap-2">
+            <Field label="Nombre del día" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+            <Button onClick={guardarNombre}>Guardar</Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setNombre(template.name)
+                setEditandoNombre(false)
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+        ) : (
+          <>
+            <button onClick={onToggle} className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+              {abierta ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+              {template.name}
+            </button>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setEditandoNombre(true)} className="text-text-muted hover:text-pegasus-red" title="Renombrar día">
+                <Pencil size={13} />
+              </button>
+              <button onClick={onDuplicar} className="flex items-center gap-1 text-xs text-text-muted hover:text-text-secondary" title="Duplicar día">
+                <Copy size={13} /> Duplicar
+              </button>
+              <BotonBorrar onConfirm={borrarDia} label="Eliminar día" />
+            </div>
+          </>
+        )}
       </div>
       {abierta && (
         <div className="mt-3 flex flex-col gap-2">

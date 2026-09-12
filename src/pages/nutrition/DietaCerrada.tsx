@@ -3,12 +3,13 @@
 // cálculo de macros/calorías: alimento + cantidad + unidad, a mano. Cada "Guardar
 // cambios" crea SIEMPRE una nueva versión (nueva fila de plan) — nunca sobrescribe la
 // anterior, que queda intacta en el historial.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Archive,
   Calendar,
   ChevronDown,
   Copy,
+  Download,
   FolderOpen,
   History,
   MoreVertical,
@@ -17,6 +18,7 @@ import {
   Sparkles,
   Sun,
   Trash2,
+  Upload,
   UtensilsCrossed,
 } from 'lucide-react'
 import { useActiveClosedDietPlan, useClosedDietItems, useClosedDietPlans, useDietTemplates, useScheduledClosedDietPlans } from '@/hooks/useData'
@@ -30,6 +32,7 @@ import {
   numeroVersion,
 } from '@/lib/supabase/closedDietRepo'
 import { listDietTemplateItems, saveClosedDietAsTemplate } from '@/lib/supabase/dietTemplateRepo'
+import { descargarPlantillaDieta, parseDietaExcel } from '@/lib/dietExcel'
 import { Card, CardLabel } from '@/components/ui/Card'
 import { DiaToggle } from '@/components/ui/DiaToggle'
 import { Field } from '@/components/ui/Field'
@@ -147,10 +150,36 @@ function DietaCerradaEntrenador({ distingueDias }: { distingueDias: boolean }) {
   const [motivoCambio, setMotivoCambio] = useState('')
   const [notas, setNotas] = useState('')
   const [guardando, setGuardando] = useState(false)
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const [importandoExcel, setImportandoExcel] = useState(false)
+  const [importMsg, setImportMsg] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null)
 
   useEffect(() => {
     setNotas(plan?.notas ?? '')
   }, [plan])
+
+  // Importar un Excel crea SIEMPRE una nueva versión del plan — mismo
+  // comportamiento que "Guardar cambios" o "Duplicar dieta", nunca sobrescribe
+  // la anterior (que sigue disponible en el historial).
+  async function importarDietaDesdeArchivo(file: File) {
+    if (!targetUserId) return
+    setImportandoExcel(true)
+    setImportMsg(null)
+    try {
+      const { nombre, filas } = await parseDietaExcel(file)
+      await createClosedDietPlanFromItems(
+        targetUserId,
+        filas.map((f, idx) => ({ diaTipo: f.diaTipo, momento: f.momento, alimento: f.alimento, gramos: f.cantidad, unidad: f.unidad, orden: idx })),
+        { nombre, motivoCambio: 'Importada desde Excel' },
+      )
+      setImportMsg({ tipo: 'ok', texto: `Dieta importada: ${filas.length} alimentos.` })
+      await Promise.all([refetchPlan(), refetchItems(), refetchHistorial()])
+    } catch (err) {
+      setImportMsg({ tipo: 'error', texto: err instanceof Error ? err.message : 'No se pudo importar el Excel.' })
+    } finally {
+      setImportandoExcel(false)
+    }
+  }
 
   const editando = borrador !== null
 
@@ -352,17 +381,39 @@ function DietaCerradaEntrenador({ distingueDias }: { distingueDias: boolean }) {
             >
               <MoreVertical size={16} />
             </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                e.target.value = ''
+                if (file) importarDietaDesdeArchivo(file)
+              }}
+            />
             {menuAbierto && (
               <div className="absolute right-0 top-11 z-20 w-52 rounded-control border border-bg-border bg-bg-card py-1 shadow-xl">
                 <MenuItem icon={History} label="Ver historial" onClick={() => { setHistorialCompleto(true); setMenuAbierto(false) }} />
                 <MenuItem icon={Copy} label="Duplicar dieta" onClick={() => plan && crearDesdeVersion(plan)} disabled={!plan} />
                 <MenuItem icon={Calendar} label="Programar nueva dieta" onClick={() => { setProgramarAbierto(true); setMenuAbierto(false) }} />
+                <MenuItem icon={Download} label="Plantilla Excel" onClick={() => { descargarPlantillaDieta(); setMenuAbierto(false) }} />
+                <MenuItem
+                  icon={Upload}
+                  label={importandoExcel ? 'Importando…' : 'Importar desde Excel'}
+                  onClick={() => { importInputRef.current?.click(); setMenuAbierto(false) }}
+                  disabled={importandoExcel}
+                />
                 <MenuItem icon={Archive} label="Archivar dieta" onClick={archivar} disabled={!plan} />
                 <MenuItem icon={Trash2} label="Eliminar dieta" danger onClick={eliminar} disabled={!plan} confirm />
               </div>
             )}
           </div>
         </div>
+
+        {importMsg && (
+          <p className={`mt-3 text-xs ${importMsg.tipo === 'ok' ? 'text-emerald-400' : 'text-pegasus-red'}`}>{importMsg.texto}</p>
+        )}
 
         {editando && (
           <p className="mt-3 rounded-control border border-pegasus-red/20 bg-pegasus-redSoft px-3 py-2 text-xs text-pegasus-red">
